@@ -1,0 +1,15 @@
+{
+    "name": "@ph.fritsche/toolbox",
+    "version": "0.0.0-semantic",
+    "author": "Philipp Fritsche <ph.fritsche@gmail.com>",
+    "peerDependencies": {
+        "typescript": "^4.7.0"
+    },
+    "dependencies": {
+        "rollup": "^2.78.1",
+        "@rollup/plugin-commonjs": "^22.0.2",
+        "@rollup/plugin-json": "^4.1.0",
+        "@swc/core": "^1.2.244",
+        "chokidar": "^3.5.3"
+    }
+}
