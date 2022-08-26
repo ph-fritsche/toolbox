@@ -120,8 +120,8 @@ function matchesEntryPoints(
     for (const p of entrypoints) {
         if (typeof p === 'string') {
             if (p.startsWith('/')
-                ? p === filepath || filepath.charAt(p.length) === '/'
-                : p === subpath || subpath.charAt(p.length) === '/'
+                ? p === filepath || filepath.startsWith(`${p}/`)
+                : p === subpath || subpath.startsWith(`${p}/`)
             ) {
                 return true
             }
