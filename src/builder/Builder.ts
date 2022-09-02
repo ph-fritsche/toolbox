@@ -70,6 +70,7 @@ export class Builder {
     protected buildExternals = true
     protected outputOptions: OutputOptions = {
         preserveModules: true,
+        sourcemap: true,
     }
 
     readonly emitter = new EventEmitter<BuildEventMap>()
@@ -264,6 +265,7 @@ export class IifeBuilder extends Builder {
         this.outputOptions = {
             format: 'iife',
             preserveModules: false,
+            sourcemap: true,
             entryFileNames: ({facadeModuleId}) => `__env--${getSubPath(String(facadeModuleId), this.basePath).replace('/', '--')}.[hash].js`
         }
         this.isExternal = () => false
@@ -301,7 +303,7 @@ function setOutputFiles(
             map.set(f.fileName, {
                 moduleId: f.facadeModuleId,
                 isEntry: f.isEntry,
-                content: f.code,
+                content: `${f.code}\n//# sourceMappingURL=${f.map?.toUrl()}`,
             })
         } else {
             map.set(f.fileName, {
