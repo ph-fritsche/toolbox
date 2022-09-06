@@ -7,6 +7,7 @@ import { createTransformPlugin } from './transform'
 import { createIstanbulPlugin } from './instrument'
 
 export { Builder, IifeBuilder } from './Builder'
+export type { OutputFilesMap } from './Builder'
 export { BuildProvider } from './BuildProvider'
 
 export function createRollupPlugins(

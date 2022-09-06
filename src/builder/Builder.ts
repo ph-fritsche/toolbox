@@ -1,10 +1,10 @@
 import { Stats } from 'fs'
 import { OutputOptions, Plugin, PreRenderedChunk, rollup, RollupBuild, RollupCache, RollupError, RollupOutput } from 'rollup'
-import { EventEmitter } from './EventEmitter'
+import { EventEmitter } from '../event'
 import { nodeJsModulePrefix } from './resolve'
 
 type InputFilesMap = Map<string, Stats | undefined>
-type OutputFilesMap = Map<string, {
+export type OutputFilesMap = Map<string, {
     content: string | Uint8Array
     isEntry?: boolean
     moduleId?: string | null

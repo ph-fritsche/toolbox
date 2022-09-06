@@ -1,7 +1,7 @@
 import { Stats } from 'fs'
 import { watch } from 'chokidar'
+import { EventEmitter } from '../event'
 import { Builder } from './Builder'
-import { EventEmitter } from './EventEmitter'
 
 type BuilderEntry = {
     builder: Builder
