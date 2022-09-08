@@ -71,9 +71,21 @@ export class TmpFileServer extends FileServer<TmpFileServerEventMap> {
 
             await Promise.all([
                 ...prune.map(f => fs.rm(`${rootDir}/${f}`, {recursive: true})),
-                ...makeDirs.map(d => fs.mkdir(`${rootDir}/${d}`)),
-                ...Array.from(files.entries()).map(([name, {content}]) => fs.writeFile(`${rootDir}/${name}`, content))
             ])
+
+            const mkPromise = new Map<string, Promise<void>>()
+            makeDirs.forEach(d => {
+                const parent = d.includes('/') ? d.substring(0, d.lastIndexOf('/')) : undefined
+                mkPromise.set(d, (parent && mkPromise.get(parent) || Promise.resolve())
+                    .then(() => fs.mkdir(`${rootDir}/${d}`))
+                )
+            })
+            await Promise.all(mkPromise.values())
+
+            await Promise.all(
+                Array.from(files.entries())
+                    .map(([name, {content}]) => fs.writeFile(`${rootDir}/${name}`, content))
+            )
 
             this.emitter.dispatch('update', {
                 files,
