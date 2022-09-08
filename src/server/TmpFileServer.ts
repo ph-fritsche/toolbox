@@ -2,10 +2,18 @@ import fsSync from 'fs'
 import fs from 'fs/promises'
 import path from 'path'
 import os from 'os'
-import { FileServer } from './FileServer'
+import { FileServer, FileServerEventMap } from './FileServer'
 import { OutputFilesMap } from '../builder'
 
-export class TmpFileServer extends FileServer {
+type TmpFileServerEventMap = FileServerEventMap & {
+    update: {
+        prune: string[]
+        mkDir: string[]
+        write: string[]
+    }
+}
+
+export class TmpFileServer extends FileServer<TmpFileServerEventMap> {
     constructor(
         prefix = 'toolbox-',
     ) {
@@ -66,6 +74,13 @@ export class TmpFileServer extends FileServer {
                 ...makeDirs.map(d => fs.mkdir(`${rootDir}/${d}`)),
                 ...Array.from(files.entries()).map(([name, {content}]) => fs.writeFile(`${rootDir}/${name}`, content))
             ])
+
+            this.emitter.dispatch('update', {
+                files,
+                prune,
+                mkDir: makeDirs,
+                write: Array.from(files.keys()),
+            })
 
             return files
         })

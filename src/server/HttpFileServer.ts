@@ -1,15 +1,15 @@
 import {createServer, IncomingMessage, ServerResponse} from 'http'
 import { EventEmitter } from '../event'
-import { FileServer } from './FileServer'
+import { FileServer, FileServerEventMap } from './FileServer'
 
-type HttpFileServerEventMap = {
+type HttpFileServerEventMap = FileServerEventMap & {
     connection: {
         request: IncomingMessage
         response: ServerResponse
     }
 }
 
-export class HttpFileServer extends FileServer {
+export class HttpFileServer extends FileServer<HttpFileServerEventMap> {
     constructor(
         port = 0,
         host = '127.0.0.1',
@@ -62,8 +62,6 @@ export class HttpFileServer extends FileServer {
     get server() {
         return this._server
     }
-    
-    readonly emitter = new EventEmitter<HttpFileServerEventMap>()
 
     private getUrl() {
         const addr = this._server.address()

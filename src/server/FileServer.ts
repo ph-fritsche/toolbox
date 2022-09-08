@@ -1,18 +1,29 @@
 import { OutputFilesMap } from "../builder";
+import { EventEmitter } from "../event";
 
-export abstract class FileServer {
+export type FileServerEventMap = {
+    update: {
+        files: OutputFilesMap
+    }
+}
+
+export abstract class FileServer<EventMap extends FileServerEventMap = FileServerEventMap> {
     protected _files: Promise<OutputFilesMap> = Promise.resolve(new Map())
     get files() {
         return this._files
     }
-    updateFiles(files: OutputFilesMap) {
-        return this._files = Promise.resolve(files)
+    async updateFiles(files: OutputFilesMap) {
+        this._files = Promise.resolve(files)
+        this.emitter.dispatch('update', {files})
+        return this._files
     }
 
     protected _url: Promise<URL> = new SafeRejectedPromise('FileServer is not initialized.')
     get url() {
         return this._url
     }
+
+    readonly emitter = new EventEmitter<EventMap>()
 }
 
 class SafeRejectedPromise<T> implements Promise<T> {
