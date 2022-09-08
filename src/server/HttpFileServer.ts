@@ -1,6 +1,6 @@
 import {createServer, IncomingMessage, ServerResponse} from 'http'
-import { OutputFilesMap } from '../builder'
 import { EventEmitter } from '../event'
+import { FileServer } from './FileServer'
 
 type HttpFileServerEventMap = {
     connection: {
@@ -9,11 +9,12 @@ type HttpFileServerEventMap = {
     }
 }
 
-export class HttpFileServer {
+export class HttpFileServer extends FileServer {
     constructor(
         port = 0,
         host = '127.0.0.1',
     ) {
+        super()
         this._url = new Promise<URL>((res, rej) => {
             this.server.listen(port, host, () => {
                 const url = this.getUrl()
@@ -32,10 +33,10 @@ export class HttpFileServer {
             })
         })
     }
-    private _server = createServer((req, res) => {
+    private _server = createServer(async (req, res) => {
         if (req.method === 'GET') {
             const subpath = req.url?.startsWith('/') ? req.url.substring(1) : undefined
-            const file = subpath && this.files.get(subpath)
+            const file = subpath && (await this.files).get(subpath)
             if (file) {
                 const queryPos = subpath.indexOf('?')
                 const filename = subpath.substring(0, queryPos >= 0 ? queryPos : undefined)
@@ -57,18 +58,12 @@ export class HttpFileServer {
             response: res,
         })
     })
-    private _url: Promise<URL>
 
     get server() {
         return this._server
     }
-    get url() {
-        return this._url
-    }
     
     readonly emitter = new EventEmitter<HttpFileServerEventMap>()
-
-    files: OutputFilesMap = new Map()
 
     private getUrl() {
         const addr = this._server.address()
