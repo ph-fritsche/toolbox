@@ -1,7 +1,6 @@
 import { Stats } from 'fs'
 import { OutputOptions, Plugin, PreRenderedChunk, rollup, RollupBuild, RollupCache, RollupError, RollupOutput } from 'rollup'
 import { EventEmitter } from '../event'
-import { nodeJsModulePrefix } from './resolve'
 
 type InputFilesMap = Map<string, Stats | undefined>
 export type OutputFilesMap = Map<string, {
@@ -40,6 +39,8 @@ type BuilderInit = {
     id: string
     plugins: Plugin[]
     basePath?: string
+    /** Check if a *resolved* *absolute* moduleName is a nodeJs module */
+    isResolvedNodeModule?: (moduleName: string) => boolean
 }
 
 export class Builder {
@@ -47,15 +48,18 @@ export class Builder {
         id,
         plugins,
         basePath = `${process.cwd()}/`,
+        isResolvedNodeModule = (moduleName: string) => !moduleName.startsWith('/')
     }: BuilderInit) {
         this.id = id
         this.plugins = plugins
         this.basePath = basePath
         this.outputOptions.preserveModulesRoot = basePath
+        this.isResolvedNodeModule = isResolvedNodeModule
     }
     readonly id
     protected plugins
     protected basePath
+    protected isResolvedNodeModule
 
     protected isExternal = (
         source: string,
@@ -64,7 +68,7 @@ export class Builder {
     ) => {
         return isResolved && (
             source.includes('/node_modules/')
-            || isNodeJsModule(source)
+            || this.isNodeJsModule(source)
         )
     }
     protected buildExternals = true
@@ -199,7 +203,7 @@ export class Builder {
             async b => {
                 this.cache = b.cache
 
-                const externalsInput = this.externals.filter(f => !isNodeJsModule(f))
+                const externalsInput = this.externals.filter(f => !this.isNodeJsModule(f))
 
                 const externalBuild = this.buildExternals && externalsInput.some(f => {
                     const name = f.startsWith(this.basePath) ? f.substring(this.basePath.length) : f
@@ -210,7 +214,7 @@ export class Builder {
                         input: externalsInput,
                         plugins: this.plugins,
                         external: (source, importer, isResolved) => {
-                            if (isResolved && isNodeJsModule(source)) {
+                            if (isResolved && this.isNodeJsModule(source)) {
                                 return true
                             }
                         },
@@ -264,6 +268,13 @@ export class Builder {
             })
         })
     }
+
+    /** Check if a *resolved* moduleName is a nodeJs module */
+    protected isNodeJsModule(
+        moduleName: string,
+    ) {
+        return !moduleName.startsWith('.') && this.isResolvedNodeModule(moduleName)
+    }
 }
 
 export class IifeBuilder extends Builder {
@@ -275,16 +286,11 @@ export class IifeBuilder extends Builder {
             sourcemap: true,
             entryFileNames: ({facadeModuleId}) => `__env--${getSubPath(String(facadeModuleId), this.basePath).replace('/', '--')}.[hash].js`
         }
-        this.isExternal = () => false
+        this.isExternal = (source, importer, isResolved) => {
+            return isResolved && this.isNodeJsModule(source)
+        }
         this.buildExternals = false
     }
-}
-
-/** Check if a *resolved* moduleName is a nodeJs module */
-function isNodeJsModule(moduleName: string) {
-    return !moduleName.startsWith('.') && (
-        !moduleName.startsWith('/') || moduleName.startsWith(nodeJsModulePrefix)
-    )
 }
 
 function preserveEntryFileNames(

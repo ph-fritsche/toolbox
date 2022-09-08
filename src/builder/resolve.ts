@@ -81,10 +81,11 @@ export function createTsResolvePlugin(
     }
 }
 
-export const nodeJsModulePrefix = '/__nodeJs/'
+export type NodeModuleIdRewrite = (id: string) => string
 
 export function createNodeResolvePlugin(
-    prefixNodeJs = nodeJsModulePrefix,
+    resolve: (id: string) => string,
+    rewriteNodeModuleIds?: NodeModuleIdRewrite,
     name = 'node-import-resolver',
 ): Plugin {
     return{
@@ -104,14 +105,11 @@ export function createNodeResolvePlugin(
             }
 
             const resolved = moduleName.startsWith('.')
-                ? require.resolve(path.join(path.dirname(importer), moduleName))
-                : require.resolve(moduleName)
+                ? resolve(path.join(path.dirname(importer), moduleName))
+                : resolve(moduleName)
 
-            if (resolved === moduleName && prefixNodeJs) {
-                if (prefixNodeJs !== nodeJsModulePrefix) {
-                    return `${prefixNodeJs}${moduleName}.ts`
-                }
-                return `${prefixNodeJs}${moduleName}`
+            if (resolved === moduleName && rewriteNodeModuleIds) {
+                return rewriteNodeModuleIds(moduleName)
             }
 
             return resolved

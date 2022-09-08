@@ -1,8 +1,8 @@
-import path from 'path'
+import { Plugin } from 'rollup'
 import createCjsPlugin from '@rollup/plugin-commonjs'
 import createJsonPlugin from '@rollup/plugin-json'
 import { parseTsConfig } from './tsconfig'
-import { createTsResolvePlugin, createNodeResolvePlugin, nodeJsModulePrefix } from './resolve'
+import { createTsResolvePlugin, createNodeResolvePlugin, NodeModuleIdRewrite } from './resolve'
 import { createTransformPlugin } from './transform'
 import { createIstanbulPlugin } from './instrument'
 
@@ -11,9 +11,10 @@ export type { OutputFilesMap } from './Builder'
 export { BuildProvider } from './BuildProvider'
 
 export function createRollupPlugins(
+    resolve: (id: string) => string,
     tsConfigFile: string,
-    externalNodeJs = true,
-) {
+    rewriteNodeModuleIds?: NodeModuleIdRewrite,
+): Plugin[] {
     const { compilerOptions } = parseTsConfig(tsConfigFile)
 
     return [
@@ -22,9 +23,8 @@ export function createRollupPlugins(
         }),
         createJsonPlugin(),
         createTsResolvePlugin(compilerOptions),
-        createNodeResolvePlugin(externalNodeJs ? nodeJsModulePrefix : `${path.resolve('testenv-nodejs/')}/`),
+        createNodeResolvePlugin(resolve, rewriteNodeModuleIds),
         createTransformPlugin(compilerOptions),
         createIstanbulPlugin(),
     ]
 }
-export { nodeJsModulePrefix }
