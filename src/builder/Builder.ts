@@ -170,9 +170,16 @@ export class Builder {
     private doBuild(buildId: number) {
         this.nextBuildId++
 
+        const inputModules: string[] = []
+        for (const f of this.inputFiles.keys()) {
+            if (/\.(tsx?|jsx?|mjs|cjs)$/.test(f)) {
+                inputModules.push(f)
+            }
+        }
+
         this.currentBuild = rollup({
             cache: this.cache,
-            input: Array.from(this.inputFiles.keys()),
+            input: inputModules,
             plugins: this.plugins,
             external: (source, importer, isResolved) => {
                 if (this.isExternal(source, importer, isResolved)) {
