@@ -104,9 +104,15 @@ export function createNodeResolvePlugin(
                 return
             }
 
-            const resolved = moduleName.startsWith('.')
-                ? resolve(path.join(path.dirname(importer), moduleName))
-                : resolve(moduleName)
+            let resolved: string|undefined = undefined
+            try {
+                resolved = moduleName.startsWith('.')
+                    ? resolve(path.join(path.dirname(importer), moduleName))
+                    : resolve(moduleName)
+            } catch (e) {
+                this.warn(`Cannot resolve dependency "${moduleName}" in ${importer}`)
+                return
+            }
 
             if (resolved === moduleName && rewriteNodeModuleIds) {
                 return rewriteNodeModuleIds(moduleName)
