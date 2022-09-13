@@ -6,6 +6,7 @@ import { parseTsConfig } from './tsconfig'
 import { createTsResolvePlugin, createNodeResolvePlugin, NodeModuleIdRewrite } from './resolve'
 import { createTransformPlugin } from './transform'
 import { createIstanbulPlugin } from './instrument'
+import { createUndefinedPlugin } from './undefined'
 
 export { Builder, IifeBuilder } from './Builder'
 export type { OutputFilesMap } from './Builder'
@@ -26,6 +27,7 @@ export function createRollupPlugins(
         createJsonPlugin(),
         createTsResolvePlugin(compilerOptions),
         createNodeResolvePlugin(resolve, rewriteNodeModuleIds),
+        createUndefinedPlugin(),
         createTransformPlugin(compilerOptions),
         createIstanbulPlugin(),
     ]
