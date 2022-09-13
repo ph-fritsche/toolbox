@@ -1,6 +1,7 @@
 import { Plugin } from 'rollup'
 import createCjsPlugin from '@rollup/plugin-commonjs'
 import createJsonPlugin from '@rollup/plugin-json'
+import createNodePolyfillPlugin from 'rollup-plugin-polyfill-node'
 import { parseTsConfig } from './tsconfig'
 import { createTsResolvePlugin, createNodeResolvePlugin, NodeModuleIdRewrite } from './resolve'
 import { createTransformPlugin } from './transform'
@@ -21,6 +22,7 @@ export function createRollupPlugins(
         createCjsPlugin({
             include: '**/node_modules/**',
         }),
+        createNodePolyfillPlugin(),
         createJsonPlugin(),
         createTsResolvePlugin(compilerOptions),
         createNodeResolvePlugin(resolve, rewriteNodeModuleIds),
