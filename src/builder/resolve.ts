@@ -114,8 +114,12 @@ export function createNodeResolvePlugin(
                 return
             }
 
-            if (resolved === moduleName && rewriteNodeModuleIds) {
-                return rewriteNodeModuleIds(moduleName)
+            if (resolved === moduleName) {
+                if (rewriteNodeModuleIds) {
+                    return rewriteNodeModuleIds(moduleName)
+                } else {
+                    return undefined
+                }
             }
 
             return resolved
