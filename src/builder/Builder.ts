@@ -1,4 +1,5 @@
 import { Stats } from 'fs'
+import path from 'path'
 import { OutputOptions, Plugin, PreRenderedChunk, rollup, RollupBuild, RollupCache, RollupError, RollupOutput } from 'rollup'
 import { EventEmitter } from '../event'
 
@@ -75,6 +76,12 @@ export class Builder {
     protected outputOptions: OutputOptions = {
         preserveModules: true,
         sourcemap: true,
+        paths: (id: string) => {
+            if (id.startsWith('/')) {
+                return path.relative(this.basePath, id)
+            }
+            return id
+        }
     }
 
     readonly emitter = new EventEmitter<BuildEventMap>()
@@ -284,7 +291,8 @@ export class IifeBuilder extends Builder {
             format: 'iife',
             preserveModules: false,
             sourcemap: true,
-            entryFileNames: ({facadeModuleId}) => `__env--${getSubPath(String(facadeModuleId), this.basePath).replace('/', '--')}.[hash].js`
+            entryFileNames: ({facadeModuleId}) => `__env--${getSubPath(String(facadeModuleId), this.basePath).replace('/', '--')}.[hash].js`,
+            paths: id => id,
         }
         this.isExternal = (source, importer, isResolved) => {
             return isResolved && this.isNodeJsModule(source)
