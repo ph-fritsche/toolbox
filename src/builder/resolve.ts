@@ -2,6 +2,20 @@ import { lstat } from 'fs/promises'
 import path from 'path'
 import { Plugin } from 'rollup'
 import ts, { CompilerOptions } from 'typescript'
+import { resolve as importResolve } from 'import-meta-resolve'
+import requireResolveAsync from 'resolve'
+
+function requireResolve(moduleName: string, importer: string) {
+    return new Promise<string|undefined>((res, rej) => {
+        requireResolveAsync(moduleName, {}, (err, resolved) => {
+            if (err) {
+                rej(err)
+            } else {
+                res(resolved)
+            }
+        })
+    })
+}
 
 const _resolvedTsPath: Record<string, string | undefined | false> = {}
 async function resolveTsPaths(
@@ -48,17 +62,28 @@ async function matchFiles(
         return _matchedFiles[absPath]
     }
 
-    const isdir = await lstat(absPath).then(stats => stats.isDirectory(), () => false)
-    const lookupBase = isdir ? path.join(absPath, 'index') : absPath
+    const stats = await lstat(absPath).catch(() => undefined)
+    if (stats?.isFile()) {
+        _matchedFiles[absPath] = absPath
+        return absPath
+    }
 
-    for (const ext of ['.ts', '.mjs', '.js']) {
-        const lookupFile = `${lookupBase}${ext}`
-        const exists = await lstat(lookupFile).then(() => true, () => false)
-        if (exists) {
-            _matchedFiles[absPath] = lookupFile
-            return lookupFile
+    const lookupBase = [absPath]
+    if (stats?.isDirectory() && !await lstat(path.join(absPath, 'package.json')).catch(() => undefined)) {
+        lookupBase.push(path.join(absPath, 'index'))
+    }
+
+    for (const base of lookupBase) {
+        for (const ext of ['.ts', '.mjs', '.js']) {
+            const lookupFile = `${base}${ext}`
+            const exists = await lstat(lookupFile).then(() => true, () => false)
+            if (exists) {
+                _matchedFiles[absPath] = lookupFile
+                return lookupFile
+            }
         }
     }
+
     _matchedFiles[absPath] = undefined
 }
 
@@ -84,8 +109,6 @@ export function createTsResolvePlugin(
 export type NodeModuleIdRewrite = (id: string) => string
 
 export function createNodeResolvePlugin(
-    resolve: (id: string) => string,
-    rewriteNodeModuleIds?: NodeModuleIdRewrite,
     name = 'node-import-resolver',
 ): Plugin {
     return{
@@ -96,30 +119,32 @@ export function createNodeResolvePlugin(
                 || moduleName.includes(':')
                 || moduleName.includes('?')
                 || !importer
-                || importer.startsWith('\0')
-                || importer.includes('?')
-                // || moduleName.includes('/node_modules/')
-                // || importer.includes('/node_modules/')
             ) {
                 return
             }
 
             let resolved: string|undefined = undefined
-            try {
-                resolved = moduleName.startsWith('.')
-                    ? resolve(path.join(path.dirname(importer), moduleName))
-                    : resolve(moduleName)
-            } catch (e) {
-                this.warn(`Cannot resolve dependency "${moduleName}" in ${importer}`)
-                return
+
+            if (moduleName.startsWith('.')) {
+                resolved = await matchFiles(moduleName, path.dirname(importer))
+            }
+
+            if (!resolved) {
+                resolved = await importResolve(moduleName, `file://${importer}`)
+                    .catch(() => undefined)
+
+                if (resolved?.startsWith('file://')) {
+                    resolved = resolved.substring(7)
+                }
+            }
+
+            if (!resolved) {
+                resolved = await requireResolve(moduleName, importer)
+                    .catch(() => undefined)
             }
 
             if (resolved === moduleName) {
-                if (rewriteNodeModuleIds) {
-                    return rewriteNodeModuleIds(moduleName)
-                } else {
-                    return undefined
-                }
+                return undefined
             }
 
             return resolved

@@ -1,0 +1,15 @@
+{
+    "include": [
+        "src",
+    ],
+    "exclude": [
+    ],
+    "compilerOptions": {
+        "outDir": "dist",
+        "declaration": true,
+        "target": "ES2022",
+        "moduleResolution": "Node",
+        "module": "ESNext",
+        "allowSyntheticDefaultImports": true,
+    },
+}

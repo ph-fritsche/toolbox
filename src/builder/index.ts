@@ -1,32 +1,38 @@
 import { Plugin } from 'rollup'
 import createCjsPlugin from '@rollup/plugin-commonjs'
 import createJsonPlugin from '@rollup/plugin-json'
-import createNodePolyfillPlugin from 'rollup-plugin-polyfill-node'
 import { parseTsConfig } from './tsconfig'
-import { createTsResolvePlugin, createNodeResolvePlugin, NodeModuleIdRewrite } from './resolve'
+import { createTsResolvePlugin, createNodeResolvePlugin } from './resolve'
 import { createTransformPlugin } from './transform'
 import { createIstanbulPlugin } from './instrument'
 import { createUndefinedPlugin } from './undefined'
+import { createNodeCorePlugin, NodeCorePluginOptions } from './node'
 
 export { Builder, IifeBuilder } from './Builder'
 export type { OutputFilesMap } from './Builder'
 export { BuildProvider } from './BuildProvider'
 
-export function createRollupPlugins(
-    resolve: (id: string) => string,
+export interface RollupPluginFactoryOptions extends NodeCorePluginOptions {
     tsConfigFile: string,
-    rewriteNodeModuleIds?: NodeModuleIdRewrite,
-): Plugin[] {
+}
+
+export function createRollupPlugins({
+    tsConfigFile,
+    additionalPolyfills,
+    externalPolyfills,
+    overridePolyfills,
+}: RollupPluginFactoryOptions): Plugin[] {
     const { compilerOptions } = parseTsConfig(tsConfigFile)
 
     return [
         createCjsPlugin({
             include: '**/node_modules/**',
+            requireReturnsDefault: 'preferred',
         }),
-        createNodePolyfillPlugin(),
         createJsonPlugin(),
+        createNodeCorePlugin({additionalPolyfills, externalPolyfills, overridePolyfills}),
         createTsResolvePlugin(compilerOptions),
-        createNodeResolvePlugin(resolve, rewriteNodeModuleIds),
+        createNodeResolvePlugin(),
         createUndefinedPlugin(),
         createTransformPlugin(compilerOptions),
         createIstanbulPlugin(),

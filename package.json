@@ -6,16 +6,29 @@
         "typescript": "^4.7.0"
     },
     "dependencies": {
+        "@geut/browser-node-core": "^2.0.1",
         "@rollup/plugin-commonjs": "^22.0.2",
         "@rollup/plugin-json": "^4.1.0",
         "@swc/core": "^1.2.244",
         "chokidar": "^3.5.3",
+        "fflate": "^0.7.3",
+        "import-meta-resolve": "^2.1.0",
         "istanbul-lib-instrument": "^5.2.0",
+        "resolve": "^1.22.1",
         "rollup": "^2.78.1"
     },
     "devDependencies": {
+        "@ph.fritsche/scripts-config": "^2.4.0",
         "@types/istanbul-lib-instrument": "^1.7.4",
-        "rollup-plugin-polyfill-node": "^0.10.2",
+        "@types/node": "^18.7.18",
+        "@types/resolve": "^1.20.2",
+        "shared-scripts": "^1.6.0",
         "typescript": "^4.8.2"
-    }
+    },
+    "scripts": {
+        "build": "scripts ts-build2"
+    },
+    "main": "./dist/index.js",
+    "module": "./dist/index.js",
+    "types": "./dist/index.d.ts"
 }
