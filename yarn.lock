@@ -190,9 +190,9 @@
     to-fast-properties "^2.0.0"
 
 "@geut/browser-node-core@^2.0.1":
-  version "2.0.8"
-  resolved "https://registry.yarnpkg.com/@geut/browser-node-core/-/browser-node-core-2.0.8.tgz#ba00743c51345c449c0a09571f2a1fc6042b7ac3"
-  integrity sha512-D1CGPBL1jGdXFzqBVWara0qAsMoSdRuEHs3YK58pgdun2D5b7RFHvQn0aYtEY/ZW+5yoXKEFGXbvKpyeUSwzuA==
+  version "2.0.10"
+  resolved "https://registry.yarnpkg.com/@geut/browser-node-core/-/browser-node-core-2.0.10.tgz#81f8ab2bcb01de50851bb7d82d7942732f6774f9"
+  integrity sha512-rvM+yqKIeswiY+tYrqfCqZzAJZoAGWFPLfAlQKaxeAEl9H4qkCqZ/NYA7YW4erAXiQSt6pMpZ6KDG1IRQslfkQ==
 
 "@istanbuljs/schema@^0.1.2":
   version "0.1.3"
