@@ -1,7 +1,8 @@
 import { Stats } from 'fs'
 import path from 'path'
-import { OutputOptions, Plugin, PreRenderedChunk, rollup, RollupBuild, RollupCache, RollupError, RollupOutput } from 'rollup'
+import { OutputOptions, Plugin, PreRenderedChunk, rollup, RollupBuild, RollupCache, RollupError, RollupOptions, RollupOutput } from 'rollup'
 import { EventEmitter } from '../event'
+import { isNodeJsBuiltin } from './module'
 
 type InputFilesMap = Map<string, Stats | undefined>
 export type OutputFilesMap = Map<string, {
@@ -18,11 +19,15 @@ export type BuildEventMap = {
     start: {
         buildId: number
         inputFiles: InputFilesMap
-        build: Promise<RollupBuild>
+        build: Promise<RollupBuild|undefined>
+    }
+    externals: {
+        buildId: number
+        externals: string[]
     }
     complete: {
         buildId: number
-        build: RollupBuild
+        build: RollupBuild|undefined
         inputFiles: InputFilesMap
         outputFiles: OutputFilesMap
     }
@@ -36,12 +41,17 @@ export type BuildEventMap = {
 }
 type BuildEvent = keyof BuildEventMap
 
-type BuilderInit = {
+export type BuilderInit = {
     id: string
     plugins: Plugin[]
     basePath?: string
-    /** Check if a *resolved* *absolute* moduleName is a nodeJs module */
-    isResolvedNodeModule?: (moduleName: string) => boolean
+    isExternal?: (
+        source: string,
+        importer: string | undefined,
+        isResolved: boolean
+    ) => boolean
+    outputOptions?: OutputOptions
+    paths?: (moduleId: string) => string|undefined
 }
 
 export class Builder {
@@ -49,40 +59,48 @@ export class Builder {
         id,
         plugins,
         basePath = `${process.cwd()}/`,
-        isResolvedNodeModule = (moduleName: string) => !moduleName.startsWith('/')
+        isExternal,
+        outputOptions,
+        paths,
     }: BuilderInit) {
         this.id = id
         this.plugins = plugins
         this.basePath = basePath
-        this.outputOptions.preserveModulesRoot = basePath
-        this.isResolvedNodeModule = isResolvedNodeModule
-    }
-    readonly id
-    protected plugins
-    protected basePath
-    protected isResolvedNodeModule
-
-    protected isExternal = (
-        source: string,
-        importer: string|undefined,
-        isResolved: boolean,
-    ) => {
-        return isResolved && (
-            source.includes('/node_modules/')
-            || this.isNodeJsModule(source)
-        )
-    }
-    protected buildExternals = true
-    protected outputOptions: OutputOptions = {
-        preserveModules: true,
-        sourcemap: true,
-        paths: (id: string) => {
-            if (id.startsWith('/')) {
-                return path.relative(this.basePath, id)
-            }
-            return id
+        this.outputOptions = {
+            preserveModules: true,
+            preserveModulesRoot: basePath,
+            entryFileNames: (outputOptions?.preserveModules ?? true)
+                ? undefined
+                : preserveEntryFileNames(basePath),
+            sourcemap: true,
+            paths: (id: string) => {
+                if (id.startsWith('.')) {
+                    return id
+                }
+                const p = paths?.(id)
+                if (p) {
+                    return p
+                } else if (id.startsWith('/')) {
+                    return path.relative(basePath, id)
+                }
+                return id
+            },
+            ...outputOptions,
         }
+        this.isExternal = isExternal ?? ((source, importer, isResolved) => isResolved && (
+            source.includes('/node_modules/')
+            || isNodeJsBuiltin(source)
+        ))
     }
+    readonly id: string
+    protected plugins: Plugin[]
+    protected basePath: string
+    protected outputOptions: OutputOptions
+    protected isExternal: (
+        source: string,
+        importer: string | undefined,
+        isResolved: boolean
+    ) => boolean
 
     readonly emitter = new EventEmitter<BuildEventMap>()
 
@@ -90,17 +108,12 @@ export class Builder {
 
     private cache: RollupCache | undefined
 
-    private _externals: string[] = []
+    private _externals = new Set<string>()
     get externals() {
-        return [...this._externals]
+        return Array.from(this._externals.values())
     }
 
-    private internalOutputFiles: OutputFilesMap = new Map()
-    private externalOutputFiles: OutputFilesMap = new Map()
-    private _combinedOutput: OutputFilesMap = new Map()
-    get outputFiles() {
-        return this._combinedOutput
-    }
+    readonly outputFiles: OutputFilesMap = new Map()
 
     get idle() {
         return this.promisedBuildId === undefined
@@ -108,8 +121,8 @@ export class Builder {
 
     private nextBuildId = 0
     private promisedBuildId: number|undefined = undefined
-    private currentBuild: Promise<RollupBuild>|undefined
-    private pendingBuild: Promise<RollupBuild>|undefined
+    private currentBuild: Promise<RollupBuild|undefined>|undefined
+    private pendingBuild: Promise<RollupBuild|undefined>|undefined
 
     private assertBuildId(event: BuildEventMap[BuildEvent], buildId: number) {
         if (event.buildId !== buildId) {
@@ -181,24 +194,22 @@ export class Builder {
     private doBuild(buildId: number) {
         this.nextBuildId++
 
-        const inputModules: string[] = []
-        for (const f of this.inputFiles.keys()) {
-            if (/\.(tsx?|jsx?|mjs|cjs)$/.test(f)) {
-                inputModules.push(f)
-            }
-        }
-
-        this.currentBuild = rollup({
-            cache: this.cache,
-            input: inputModules,
-            plugins: this.plugins,
-            external: (source, importer, isResolved) => {
-                if (this.isExternal(source, importer, isResolved)) {
-                    this._externals.push(source)
-                    return true
-                }
-            },
-        })
+        this.currentBuild = this.inputFiles.size
+            ? rollup({
+                cache: this.cache,
+                input: Array.from(this.inputFiles.keys()),
+                plugins: this.plugins,
+                external: (source, importer, isResolved) => {
+                    if (this.isExternal(source, importer, isResolved)) {
+                        if (source.startsWith('.')) {
+                            throw new Error(`Relative external "${source}" imported by "${importer}" in builder "${this.id}".`)
+                        }
+                        this._externals.add(source)
+                        return true
+                    }
+                },
+            })
+            : Promise.resolve(undefined)
 
         this.emitter.dispatch('start', {
             buildId,
@@ -208,44 +219,19 @@ export class Builder {
 
         this.currentBuild.then(
             async b => {
-                this.cache = b.cache
-
-                const externalsInput = this.externals.filter(f => !this.isNodeJsModule(f))
-
-                const externalBuild = this.buildExternals && externalsInput.some(f => {
-                    const name = f.startsWith(this.basePath) ? f.substring(this.basePath.length) : f
-                    return !this.externalOutputFiles.has(name)
-                })
-                    ? rollup({
-                        cache: this.cache,
-                        input: externalsInput,
-                        plugins: this.plugins,
-                        external: (source, importer, isResolved) => {
-                            if (isResolved && this.isNodeJsModule(source)) {
-                                return true
-                            }
-                        },
+                if (b) {
+                    this.cache = b.cache
+    
+                    this.emitter.dispatch('externals', {
+                        buildId,
+                        externals: this.externals,
                     })
-                    : undefined
-
-                await Promise.all([
-                    b.generate(this.outputOptions).then(o => {
-                        this.internalOutputFiles.clear()
-                        setOutputFiles(this.internalOutputFiles, o)
-                    }),
-                    externalBuild?.then(e => e.generate({
-                        preserveModules: false,
-                        sourcemap: false,
-                        entryFileNames: preserveEntryFileNames(this.basePath),
-                    })).then(o => {
-                        setOutputFiles(this.externalOutputFiles, o)
-                    }),
-                ])
-
-                this._combinedOutput = new Map(this.internalOutputFiles)
-                for (const [n, f] of this.externalOutputFiles) {
-                    this._combinedOutput.set(n, f)
-                }                
+    
+                    await b.generate(this.outputOptions).then(o => {
+                        this.outputFiles.clear()
+                        setOutputFiles(this.outputFiles, o)
+                    })
+                }
 
                 this.emitter.dispatch('complete', {
                     buildId,
@@ -254,10 +240,7 @@ export class Builder {
                     outputFiles: this.outputFiles,
                 })
 
-                await Promise.all([
-                    b.close(),
-                    externalBuild?.then(e => e.close()),
-                ])
+                await b?.close()
             },
             (error: RollupError) => {
                 this.emitter.dispatch('error', {
@@ -275,33 +258,9 @@ export class Builder {
             })
         })
     }
-
-    /** Check if a *resolved* moduleName is a nodeJs module */
-    protected isNodeJsModule(
-        moduleName: string,
-    ) {
-        return !moduleName.startsWith('.') && this.isResolvedNodeModule(moduleName)
-    }
 }
 
-export class IifeBuilder extends Builder {
-    constructor(init: BuilderInit) {
-        super(init)
-        this.outputOptions = {
-            format: 'iife',
-            preserveModules: false,
-            sourcemap: true,
-            entryFileNames: ({facadeModuleId}) => `__env--${getSubPath(String(facadeModuleId), this.basePath).replace('/', '--')}.[hash].js`,
-            paths: id => id,
-        }
-        this.isExternal = (source, importer, isResolved) => {
-            return isResolved && this.isNodeJsModule(source)
-        }
-        this.buildExternals = false
-    }
-}
-
-function preserveEntryFileNames(
+export function preserveEntryFileNames(
     basePath: string,
 ) {
     return ({ facadeModuleId, name }: PreRenderedChunk) => {
@@ -334,7 +293,7 @@ function setOutputFiles(
     }
 }
 
-function getSubPath(
+export function getSubPath(
     fileName: string,
     basePath: string,
 ) {

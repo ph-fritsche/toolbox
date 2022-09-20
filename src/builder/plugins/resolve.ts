@@ -4,6 +4,7 @@ import { Plugin } from 'rollup'
 import ts, { CompilerOptions } from 'typescript'
 import { resolve as importResolve } from 'import-meta-resolve'
 import requireResolveAsync from 'resolve'
+import { isNodeJsBuiltin } from '../module'
 
 function requireResolve(moduleName: string, importer: string) {
     return new Promise<string|undefined>((res, rej) => {
@@ -121,6 +122,10 @@ export function createNodeResolvePlugin(
                 || !importer
             ) {
                 return
+            }
+
+            if (isNodeJsBuiltin(moduleName)) {
+                return moduleName
             }
 
             let resolved: string|undefined = undefined
