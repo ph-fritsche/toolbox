@@ -3,6 +3,7 @@ import { TestConductor } from '../TestConductor'
 
 const selfUrl = import.meta.url
 const loaderUrl = new URL('./loader.js', selfUrl)
+const prepareUrl = new URL('./prepare.cjs', selfUrl)
 
 export class NodeTestConductor extends TestConductor {
     protected supportedFilesProtocols: string[] = ['file:', 'http:']
@@ -23,6 +24,7 @@ export class NodeTestConductor extends TestConductor {
             '--input-type=module',
             '--experimental-network-imports',
             '--experimental-loader', loaderUrl.pathname,
+            '--require', prepareUrl.pathname,
         ], {
             stdio: ['pipe', 'inherit', 'inherit'],
         })

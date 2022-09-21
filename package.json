@@ -26,7 +26,7 @@
         "typescript": "^4.8.2"
     },
     "scripts": {
-        "build": "scripts ts-build2"
+        "build": "scripts ts-build2 && cp src/test/node/prepare.cjs dist/test/node/prepare.cjs"
     },
     "main": "./dist/index.js",
     "module": "./dist/index.js",
