@@ -8,6 +8,7 @@ import { createNodeCoreEntryFileNames, createNodeCorePaths, createNodePolyfillPl
 import { Builder } from './Builder'
 import { isNodeJsBuiltin } from './module'
 import { createUndefinedPlugin } from './plugins/undefined'
+import { createCachePlugin, CachePluginOptions } from './plugins/cache'
 
 export { Builder } from './Builder'
 export type { OutputFilesMap } from './Builder'
@@ -37,12 +38,16 @@ export function createSourceBuilder(
 
 export function createDependencyBuilder(
     {
-    }: {} = {},
+        cache,
+    }: {
+        cache?: CachePluginOptions
+    } = {},
     id = 'dependencies',
 ) {
     return new Builder({
         id,
         plugins: [
+            createCachePlugin(cache),
             createCjsPlugin({
                 include: '**/node_modules/**',
                 requireReturnsDefault: 'preferred',
