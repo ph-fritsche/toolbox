@@ -75,7 +75,13 @@ export function createCachePlugin(
     ) {
         if (!cached.has(idHash)) {
             cached.set(idHash, fs.readFile(path.join(absCacheDir, idHash)).then(
-                b => JSON.parse(String(b)),
+                b => {
+                    try {
+                        return JSON.parse(String(b))
+                    } catch {
+                        return undefined
+                    }
+                },
                 () => undefined),
             )
         }
@@ -198,8 +204,10 @@ export function createCachePlugin(
         async generateBundle() {
             await Promise.all(Array.from(renderedChunks.entries()).map(([fileName, chunk]) => {
                 const id = chunk.facadeModuleId ? chunk.facadeModuleId.split('?', 2)[0] : fileName
+                const info = chunk.facadeModuleId ? this.getModuleInfo(id) : undefined
+
                 const idHash = createHash('sha1').update(id).digest('hex')
-                const hash = this.getModuleInfo(id)?.meta.cached?.hash
+                const hash = info?.meta[Cached].hash
                 const dependencies = chunk.imports.filter(i => renderedChunks.has(i)).map(i => createHash('sha1').update(i).digest('hex'))
 
                 return writeCached(idHash, hash, fileName, dependencies, chunk)
