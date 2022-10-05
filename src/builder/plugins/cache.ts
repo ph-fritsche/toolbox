@@ -25,7 +25,10 @@ const Cached = Symbol('cached')
 type Cached = {
     fileName: string
     hash: string
-    dependencies: string[]
+    dependencies: {
+        internal?: string[]
+        external?: string[]
+    }
     code: string
     map?: SourceMap
 }
@@ -55,18 +58,8 @@ export function createCachePlugin(
 
     function writeCached(
         idHash: string,
-        hash: string,
-        fileName: string,
-        dependencies: string[],
-        chunk: RenderedChunk,
+        cached: Cached,
     ) {
-        const cached: Cached = {
-            fileName,
-            hash,
-            dependencies,
-            code: chunk.code,
-            map: chunk.map,
-        }
         return fs.writeFile(path.join(absCacheDir, idHash), JSON.stringify(cached))
     }
 
@@ -112,8 +105,14 @@ export function createCachePlugin(
         chunk: Cached,
     ) {
         return Promise.all(
-            chunk.dependencies.map(h => getCached(h)
-                .then(c => emitCached.call(this, h, c))
+            (chunk.dependencies.internal ?? []).map(h => getCached(h)
+                .then(c => {
+                    if (!c) {
+                        throw new Error(`Missing/corrupted cached dependency "${h}" in "${chunk.fileName}".`)
+                    }
+
+                    return emitCached.call(this, h, c)
+                })
             )
         )
     }
@@ -181,7 +180,12 @@ export function createCachePlugin(
                 return
             }
 
-            return 'export default undefined'
+            const cached = this.getModuleInfo(id).meta[Cached]
+
+            return [
+                'export default undefined',
+                ...cached.dependencies.external?.map(id => `import "${id}"`),
+            ].join('\n')
         },
         renderStart() {
             renderedChunks.clear()
@@ -208,9 +212,23 @@ export function createCachePlugin(
 
                 const idHash = createHash('sha1').update(id).digest('hex')
                 const hash = info?.meta[Cached].hash
-                const dependencies = chunk.imports.filter(i => renderedChunks.has(i)).map(i => createHash('sha1').update(i).digest('hex'))
+                
+                const dependencies: Cached['dependencies'] = {external: [], internal: []}
+                for (const importedId of chunk.imports) {
+                    if (renderedChunks.has(importedId)) {
+                        dependencies.internal.push(createHash('sha1').update(importedId).digest('hex'))
+                    } else {
+                        dependencies.external.push(importedId)
+                    }
+                }
 
-                return writeCached(idHash, hash, fileName, dependencies, chunk)
+                return writeCached(idHash, {
+                    hash,
+                    fileName,
+                    dependencies,
+                    code: chunk.code,
+                    map: chunk.map,
+                })
             }))
         },
     }
