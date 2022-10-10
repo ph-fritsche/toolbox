@@ -35,7 +35,7 @@ export class HttpFileServer extends FileServer<HttpFileServerEventMap> {
     }
     private _server = createServer(async (req, res) => {
         if (req.method === 'GET') {
-            const subpath = req.url?.startsWith('/') ? req.url.substring(1) : undefined
+            const [subpath, line, char] = (req.url?.startsWith('/') ? req.url.substring(1) : '').split(':')
             const file = subpath && (await this.files).get(subpath)
             if (file) {
                 const queryPos = subpath.indexOf('?')
