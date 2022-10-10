@@ -17,7 +17,11 @@ export class TestRunner {
         }
 
         for await (const result of this.execTestsIterator(tests, [])) {
-            console.log(` [${icon[result.status] ?? result.status}] ${result.test.title} ${result.error ? '\n  ' + result.error : ''}`)
+            console.log([
+                ` [${icon[result.status] ?? result.status}] ${result.test.title}`,
+                result.error && `${result.error.name}: ${result.error.message}`,
+                result.error && `${result.error.stack}`,
+            ].filter(Boolean).join('\n'))
         }
     }
 
