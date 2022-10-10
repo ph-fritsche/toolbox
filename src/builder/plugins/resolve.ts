@@ -75,7 +75,7 @@ async function matchFiles(
     }
 
     for (const base of lookupBase) {
-        for (const ext of ['.ts', '.mjs', '.js']) {
+        for (const ext of ['.ts', '.tsx', '.mjs', '.js']) {
             const lookupFile = `${base}${ext}`
             const exists = await lstat(lookupFile).then(() => true, () => false)
             if (exists) {
