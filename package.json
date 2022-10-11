@@ -8,7 +8,6 @@
     "dependencies": {
         "@geut/browser-node-core": "^2.0.1",
         "@rollup/plugin-commonjs": "^22.0.2",
-        "@rollup/plugin-json": "^4.1.0",
         "@swc/core": "^1.2.244",
         "chokidar": "^3.5.3",
         "fflate": "^0.7.3",

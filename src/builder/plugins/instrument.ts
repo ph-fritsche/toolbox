@@ -5,7 +5,7 @@ export function createIstanbulPlugin(): Plugin {
     return {
         name: 'istanbul',
         async transform(code, id) {
-            if (id.includes('/node_modules/')) {
+            if (id.includes('/node_modules/') || !/\.[jt]sx?$/.test(id)) {
                 return
             }
             const {mappings, names, sources, sourcesContent, version} = this.getCombinedSourcemap()

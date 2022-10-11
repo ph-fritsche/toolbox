@@ -1,5 +1,4 @@
 import createCjsPlugin from '@rollup/plugin-commonjs'
-import createJsonPlugin from '@rollup/plugin-json'
 import { parseTsConfig } from './tsconfig'
 import { createTsResolvePlugin, createNodeResolvePlugin } from './plugins/resolve'
 import { createTransformPlugin } from './plugins/transform'
@@ -9,6 +8,7 @@ import { Builder } from './Builder'
 import { isNodeJsBuiltin } from './module'
 import { createUndefinedPlugin } from './plugins/undefined'
 import { createCachePlugin, CachePluginOptions } from './plugins/cache'
+import { createJsonPlugin } from './plugins/json'
 
 export { Builder } from './Builder'
 export type { OutputFilesMap } from './Builder'
@@ -29,6 +29,7 @@ export function createSourceBuilder(
         plugins: [
             createTsResolvePlugin(compilerOptions),
             createNodeResolvePlugin(),
+            createJsonPlugin(),
             createTransformPlugin(compilerOptions),
             createIstanbulPlugin(),
         ],
