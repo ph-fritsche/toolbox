@@ -13,7 +13,7 @@ export function setTestContext(on: {}, context: TestGroup) {
         context.addChild(group)
         setTestContext(on, group)
         declare.call(group)
-        setTestContext(on, this)
+        setTestContext(on, context)
     }
     describe.each = <Args extends []>(cases: Iterable<Args>) => (title: string, declare: TestGroupDeclare<Args>) => {
         for (const args of cases) {
