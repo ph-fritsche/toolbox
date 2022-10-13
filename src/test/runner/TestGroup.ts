@@ -1,24 +1,26 @@
-import type { Test } from './Test'
+import { TestGroup as BaseTestGroup, TestsIteratorGroupNode } from '../TestGroup'
+import { Serializable } from '../types'
+import { Test } from './Test'
 
 export type BeforeCallback = (this: TestGroup) => void | AfterCallback | Promise<void | AfterCallback>
 
 export type AfterCallback = (this: TestGroup) => void | Promise<void>
 
-type TestsIteratorNodeShared = {include: boolean}
-export type TestsIteratorTestNode = TestsIteratorNodeShared & {element: Test}
-export type TestsIteratorGroupNode = TestsIteratorNodeShared & {element: TestGroup} & Iterable<TestsIteratorNode>
-export type TestsIteratorNode = TestsIteratorTestNode | TestsIteratorGroupNode
+export class TestGroup extends BaseTestGroup {
+    declare readonly parent?: TestGroup
 
-export class TestGroup {
-    constructor(
-        title: string,
-        parent?: TestGroup,
-    ) {
-        this.title = title
-        this.parent = parent
+    declare protected _children: Array<TestGroup | Test>
+    get children() {
+        return [...this._children]
     }
-    readonly title: string
-    readonly parent?: TestGroup
+
+    constructor(
+        props: Serializable<BaseTestGroup> & {
+            parent?: TestGroup
+        }
+    ) {
+        super(props)
+    }
 
     private beforeAllCallbacks: BeforeCallback[] = []
     addBeforeAll(cb: BeforeCallback) {
@@ -68,30 +70,7 @@ export class TestGroup {
         }
     }
 
-    private _children: Array<TestGroup | Test> = []
     addChild(child: TestGroup | Test) {
         this._children.push(child)
-    }
-
-    tests(
-        filter?: (item: TestGroup|Test) => boolean,
-    ): TestsIteratorGroupNode {
-        const hitSelf = filter?.(this)
-        const elements = this._children.map(child => {
-            if (child instanceof TestGroup) {
-                return child.tests(hitSelf ? undefined : filter)
-            } else {
-                return {element: child, include: hitSelf || !filter || filter(child)}
-            }
-        })
-        const include = elements.some(el => el.include)
-
-        return {
-            *[Symbol.iterator]() {
-                yield* elements
-            },
-            element: this,
-            include,
-        }
     }
 }

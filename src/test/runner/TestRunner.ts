@@ -1,32 +1,37 @@
+import { TestConductorEventMap } from '../TestConductor'
+import { TestsIteratorGroupNode, TestsIteratorNode } from '../TestGroup'
 import { Test } from './Test'
-import { AfterCallback, TestGroup, TestsIteratorGroupNode, TestsIteratorNode } from './TestGroup'
+import { AfterCallback, TestGroup } from './TestGroup'
 import { TestResult, TimeoutError } from './TestResult'
 
+type fetchApi = typeof globalThis.fetch
+
 export class TestRunner {
+    constructor(
+        public reporterUrl: URL|string,
+        protected fetch: fetchApi,
+    ) {}
+
     async run(
+        runId: string,
         group: TestGroup,
         filter?: (item: TestGroup | Test) => boolean,
     ) {
-        const tests = group.tests(filter)
+        await this.report('schedule', {runId, group})
 
-        const icon = {
-            timeout: '⌛',
-            fail: '❌',
-            success: '✓',
-            skipped: '🚫',
-        }
+        const tests = group.getTestsIteratorIterator(filter)
 
         for await (const result of this.execTestsIterator(tests, [])) {
-            console.log([
-                ` [${icon[result.status] ?? result.status}] ${result.test.title}`,
-                result.error && `${result.error.name}: ${result.error.message}`,
-                result.error && `${result.error.stack}`,
-            ].filter(Boolean).join('\n'))
+            await this.report('result', {
+                runId,
+                testId: result.test.id,
+                result,
+            })
         }
     }
 
     protected async *execTestsIterator(
-        node: TestsIteratorGroupNode,
+        node: TestsIteratorGroupNode<TestGroup>,
         parents: TestGroup[] = [],
     ): AsyncGenerator<TestResult> {
         let afterAll: AfterCallback[] = []
@@ -56,7 +61,6 @@ export class TestRunner {
         if (node.include) {
             await node.element.runAfterAll(afterAll)
         }
-        console.log('finish')
     }
 
     protected async execTest(test: Test) {
@@ -73,21 +77,33 @@ export class TestRunner {
                 }),
                 test.callback.call(test),
             ])
-
-            const tdiff = performance.now() - t0
-            return new TestResult(test, tdiff)
-        } catch (e) {
-            const tdiff = performance.now() - t0
-            return new TestResult(test, tdiff, e)
+            const duration = performance.now() - t0
+            return new TestResult(test, {duration})
+        } catch (error) {
+            const duration = performance.now() - t0
+            return new TestResult(test, {duration, error})
         } finally {
             reject()
             clearTimeout(timer)
         }
     }
+
+    protected async report<K extends 'schedule' | 'result'>(type: K, data: TestConductorEventMap[K]) {
+        return this.fetch(this.reporterUrl, {
+            method: 'POST',
+            headers: {
+                'content-type': 'application/json',
+            },
+            body: JSON.stringify({
+                type,
+                ...data,
+            })
+        })        
+    }
 }
 
 function isGroup(
-    node: TestsIteratorNode
-): node is TestsIteratorGroupNode {
-    return node.element instanceof TestGroup
+    node: TestsIteratorNode<TestGroup>
+): node is TestsIteratorGroupNode<TestGroup> {
+    return Symbol.iterator in node
 }

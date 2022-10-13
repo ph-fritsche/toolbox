@@ -1,23 +1,33 @@
-import type { Test } from './Test'
+import { TestResult as BaseTestResult } from '../TestResult'
+import { Test } from './Test'
 
-export class TestResult {
+export class TestResult extends BaseTestResult {
+    readonly test: Test
+
     constructor(
-        readonly test: Test,
-        readonly duration?: number,
-        readonly error?: Error,
+        test: Test,
+        props: Partial<TestResult> = {},
     ) {
+        super({
+            status: getStatus(props.error, props.duration),
+            ...props,
+        })
+        this.test = test
     }
-        
-    get status() {
-        if (this.error instanceof TimeoutError) {
-            return 'timeout'
-        } else if (this.error) {
-            return 'fail'
-        } else if (this.duration) {
-            return 'success'
-        } else {
-            return 'skipped'
-        }
+}
+
+function getStatus(
+    error?: Error,
+    duration?: number,
+) {
+    if (error instanceof TimeoutError) {
+        return 'timeout'
+    } else if (error) {
+        return 'fail'
+    } else if (duration) {
+        return 'success'
+    } else {
+        return 'skipped'
     }
 }
 

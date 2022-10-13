@@ -13,6 +13,7 @@
         "fflate": "^0.7.3",
         "import-meta-resolve": "^2.1.0",
         "istanbul-lib-instrument": "^5.2.0",
+        "node-fetch": "^3.2.10",
         "resolve": "^1.22.1",
         "rollup": "^2.78.1"
     },

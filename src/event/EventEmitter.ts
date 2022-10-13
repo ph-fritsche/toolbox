@@ -1,4 +1,4 @@
-type EventHandler<EventMap, K extends keyof EventMap> = (event: EventMap[K] & { type: K }) => void
+type EventHandler<EventMap, K extends keyof EventMap> = (event: EventMap[K] & {type: K}) => void
 
 export class EventEmitter<EventMap extends {}> {
     private listeners: {
@@ -27,3 +27,9 @@ export class EventEmitter<EventMap extends {}> {
         this.addListener(type, h)
     }
 }
+
+export type EventMapOf<Emitter extends EventEmitter<{}>> = Emitter extends EventEmitter<infer M> ? M : never
+
+export type Event<EventMap, K extends keyof EventMap> = {
+    type: K
+} & EventMap[K]

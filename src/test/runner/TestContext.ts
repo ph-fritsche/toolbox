@@ -5,7 +5,11 @@ type TestGroupDeclare<Args extends [] = []> = (this: TestGroup, ...args: Args) =
 
 export function setTestContext(on: {}, context: TestGroup) {
     const describe = (title: string, declare: TestGroupDeclare) => {
-        const group = new TestGroup(title, this)
+        const group = new TestGroup({
+            title,
+            parent: this,
+            children: [],
+        })
         context.addChild(group)
         setTestContext(on, group)
         declare.call(group)
@@ -18,13 +22,21 @@ export function setTestContext(on: {}, context: TestGroup) {
             })
         }
     }
-    const test = (title: string, cb: TestCallback) => {
-        context.addChild(new Test(title, context, cb))
+    const test = (title: string, callback: TestCallback) => {
+        context.addChild(new Test({
+            title,
+            parent: context,
+            callback,
+        }))
     }
     test.each = <Args extends []>(cases: Iterable<Args>) => (title: string, cb: TestCallback<Args>) => {
         for (const args of cases) {
-            context.addChild(new Test(title, context, function(this: Test) {
-                cb.apply(this, args)
+            context.addChild(new Test({
+                title,
+                parent: context,
+                callback: function(this: Test) {
+                    cb.apply(this, args)
+                },
             }))
         }
     }
