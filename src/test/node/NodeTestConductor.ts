@@ -47,7 +47,9 @@ export class NodeTestConductor extends TestConductor {
 import { setTestContext, TestGroup, TestRunner } from "${this.testRunnerModule}"
 import fetch from "${String(nodeFetchUrl)}"
 
-(async () => {
+const exit = process.exit
+
+;(async () => {
     const execModule = async (moduleId) => {
         const defaultExport = await import(moduleId)
         if (typeof defaultExport === 'function') {
@@ -64,6 +66,8 @@ import fetch from "${String(nodeFetchUrl)}"
 
     const runner = new TestRunner(${JSON.stringify(this.reporterServerUrl)}, fetch)
     await runner.run(${JSON.stringify(runId)}, suite)
+
+    exit()
 })()
         `)
 
