@@ -22,14 +22,23 @@ export function setTestContext(on: {}, context: TestGroup) {
             })
         }
     }
-    const test = (title: string, callback: TestCallback) => {
+    const test = (
+        title: string,
+        callback: TestCallback,
+        timeout?: number,
+    ) => {
         context.addChild(new Test({
             title,
             parent: context,
             callback,
+            timeout,
         }))
     }
-    test.each = <Args extends []>(cases: Iterable<Args>) => (title: string, cb: TestCallback<Args>) => {
+    test.each = <Args extends []>(cases: Iterable<Args>) => (
+        title: string,
+        cb: TestCallback<Args>,
+        timeout?: number,
+    ) => {
         for (const args of cases) {
             context.addChild(new Test({
                 title,
@@ -37,6 +46,7 @@ export function setTestContext(on: {}, context: TestGroup) {
                 callback: function(this: Test) {
                     cb.apply(this, args)
                 },
+                timeout,
             }))
         }
     }
