@@ -45,7 +45,11 @@ export class ConsoleReporter {
             const result = event.result
             process.stdout.write(this.printResult(test, result) + '\n')
         } else if (isEventType(event, 'error')) {
-            process.stdout.write(`Test suite "${event.groupTitle}" failed. (runId: "${event.runId}")\n${event.error}`)
+            process.stdout.write(`\nTest suite "${event.groupTitle}" failed. (runId: "${event.runId}")\n`)
+            if (event.error) {
+                process.stdout.write(event.error.trim() + '\n')
+            }
+            process.stdout.write('\n')
         } else if (isEventType(event, 'done')) {
             process.stdout.write(`Results for run ${event.runId}:\n`)
             process.stdout.write(this.printTree(

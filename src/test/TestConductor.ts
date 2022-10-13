@@ -32,7 +32,7 @@ export type TestConductorEventMap = {
     error: {
         runId: string
         groupTitle: string
-        error: Error
+        error?: string
     }
     done: {
         runId: string
@@ -133,7 +133,7 @@ export abstract class TestConductor extends Entity {
                 error => this.emitter.dispatch('error', {
                     runId,
                     groupTitle: f.name,
-                    error,
+                    error: typeof error === 'string' ? error : undefined,
                 }),
             )
         ))
