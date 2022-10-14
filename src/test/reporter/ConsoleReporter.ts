@@ -28,24 +28,32 @@ export class ConsoleReporter {
         events.forEach(k => conductor.emitter.removeListener(k, e => this.log(conductor, e)))
     }
 
+    protected lastLog = ''
+
     protected log<
         K extends keyof TestConductorEventMap,
     >(
         conductor: TestConductor,
         event: TestConductorEventMap[K] & {type: K},
     ) {
-        if (isEventType(event, 'schedule')) {
-            process.stdout.write(`\nSchedule for run ${event.runId}:\n`)
-            process.stdout.write(this.printTree(
-                Array.from(conductor.testRuns.get(event.runId).suites.values())
-            ))
+        if (!['schedule', 'result', 'error', 'done'].includes(event.type)) {
+            return
+        }
+
+        if (this.lastLog !== `${event.runId}:${event.type}`) {
             process.stdout.write('\n')
+            this.lastLog = `${event.runId}:${event.type}`
+        }
+
+        if (isEventType(event, 'schedule')) {
+            process.stdout.write(`Suite "${event.group.title}" for run ${event.runId}:\n`)
+            process.stdout.write(this.printTree(event.group.children))
         } else if (isEventType(event, 'result')) {
             const test = conductor.testRuns.get(event.runId).tests.get(event.testId)
             const result = event.result
-            process.stdout.write(this.printResult(test, result) + '\n')
+            process.stdout.write(this.printResult(test, result))
         } else if (isEventType(event, 'error')) {
-            process.stdout.write(`\nTest suite "${event.groupTitle}" failed. (runId: "${event.runId}")\n`)
+            process.stdout.write(`Test suite "${event.groupTitle}" failed. (runId: "${event.runId}")\n`)
             if (event.error) {
                 process.stdout.write(event.error.trim() + '\n')
             }
@@ -110,9 +118,6 @@ export class ConsoleReporter {
                 t += tree.indent + '╎' + '\n'
             }
             t += tree.indent + (tree.isLast ? '└' : '├') + statusBox + test.title + '\n'
-
-
-            // t += tree.indent + (tree.isLast ? ' ' : '╎')
         } else {
             t += statusBox + ' ' + test.ancestors().concat([test]).map(n => n.title).join(' › ') + '\n'
         }
