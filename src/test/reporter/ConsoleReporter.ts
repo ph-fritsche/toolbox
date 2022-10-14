@@ -52,10 +52,16 @@ export class ConsoleReporter {
             process.stdout.write('\n')
         } else if (isEventType(event, 'done')) {
             process.stdout.write(`Results for run ${event.runId}:\n`)
+            const results = conductor.testRuns.get(event.runId).results
             process.stdout.write(this.printTree(
                 Array.from(conductor.testRuns.get(event.runId).suites.values()),
-                conductor.testRuns.get(event.runId).results,
+                results,
             ))
+            const count = { success: 0, fail: 0, timeout: 0, skipped: 0 }
+            results.forEach(result => {
+                count[result.status]++
+            })
+            process.stdout.write(`${results.size} tests were run: ${count.success} succeeded, ${count.fail} failed, ${count.timeout} timed out, ${count.skipped} were skipped`)
             process.stdout.write('\n')
         }
     }
