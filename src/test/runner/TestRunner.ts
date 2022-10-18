@@ -38,19 +38,20 @@ export class TestRunner {
         if (node.include) {
             afterAll = await node.element.runBeforeAll()
         }
+        const tree = [...parents, node.element]
         for (const child of node) {
             if (isGroup(child)) {
-                yield* this.execTestsIterator(child, [...parents, node.element])
+                yield* this.execTestsIterator(child, tree)
             } else {
                 if (child.include) {
                     const afterEach = new Map<TestGroup, AfterCallback[]>()
-                    for (const p of parents) {
+                    for (const p of tree) {
                         afterEach.set(p, await p.runBeforeEach())
                     }
 
                     yield await this.execTest(child.element)
 
-                    for (const p of parents.reverse()) {
+                    for (const p of tree.reverse()) {
                         p.runAfterEach(afterEach.get(p)!)
                     }
                 } else {
