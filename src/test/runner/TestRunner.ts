@@ -1,7 +1,8 @@
 import { TestConductorEventMap } from '../TestConductor'
 import { TestsIteratorGroupNode, TestsIteratorNode } from '../TestGroup'
 import { Test } from './Test'
-import { AfterCallback, TestGroup } from './TestGroup'
+import { TestError } from './TestError'
+import { BeforeCallbackReturn, TestGroup } from './TestGroup'
 import { TestResult, TimeoutError } from './TestResult'
 
 type fetchApi = typeof globalThis.fetch
@@ -21,7 +22,7 @@ export class TestRunner {
 
         const tests = group.getTestsIteratorIterator(filter)
 
-        for await (const result of this.execTestsIterator(tests, [])) {
+        for await (const result of this.execTestsIterator(runId, tests, [])) {
             await this.report('result', {
                 runId,
                 testId: result.test.id,
@@ -31,28 +32,33 @@ export class TestRunner {
     }
 
     protected async *execTestsIterator(
+        runId: string,
         node: TestsIteratorGroupNode<TestGroup>,
         parents: TestGroup[] = [],
     ): AsyncGenerator<TestResult> {
-        let afterAll: AfterCallback[] = []
+        let beforeAllResult: Awaited<ReturnType<TestGroup['runBefore']>>|undefined
         if (node.include) {
-            afterAll = await node.element.runBeforeAll()
+            beforeAllResult = await node.element.runBeforeAll()
+            this.reportErrors(runId, beforeAllResult.errors)
         }
         const tree = [...parents, node.element]
         for (const child of node) {
             if (isGroup(child)) {
-                yield* this.execTestsIterator(child, tree)
+                yield* this.execTestsIterator(runId, child, tree)
             } else {
                 if (child.include) {
-                    const afterEach = new Map<TestGroup, AfterCallback[]>()
+                    const afterEach = new Map<TestGroup, BeforeCallbackReturn[]>()
                     for (const p of tree) {
-                        afterEach.set(p, await p.runBeforeEach())
+                        const beforeEachResult = await p.runBeforeEach(child.element)
+                        this.reportErrors(runId, beforeEachResult.errors)
+                        afterEach.set(p, beforeEachResult.after)
                     }
 
                     yield await this.execTest(child.element)
 
                     for (const p of tree.reverse()) {
-                        p.runAfterEach(afterEach.get(p)!)
+                        const afterEachResult = await p.runAfterEach(child.element, afterEach.get(p)!)
+                        this.reportErrors(runId, afterEachResult.errors)
                     }
                 } else {
                     yield new TestResult(child.element)
@@ -60,7 +66,8 @@ export class TestRunner {
             }
         }
         if (node.include) {
-            await node.element.runAfterAll(afterAll)
+            const afterAllResult = await node.element.runAfterAll(beforeAllResult.after)
+            this.reportErrors(runId, afterAllResult.errors)
         }
     }
 
@@ -89,7 +96,7 @@ export class TestRunner {
         }
     }
 
-    protected async report<K extends 'schedule' | 'result'>(type: K, data: TestConductorEventMap[K]) {
+    protected async report<K extends 'schedule' | 'result' | 'error'>(type: K, data: TestConductorEventMap[K]) {
         return this.fetch(this.reporterUrl, {
             method: 'POST',
             headers: {
@@ -100,6 +107,23 @@ export class TestRunner {
                 ...data,
             })
         })        
+    }
+
+    protected async reportErrors(runId: string, errors: TestError[]) {
+        errors.forEach(e => {
+            const ancestors: string[] = []
+            for (let p = e.context.parent; p; p = p.parent) {
+                ancestors.push(p.title)
+            }
+            this.report('error', {
+                runId,
+                groupTitle: e.context.title,
+                ancestors,
+                testTitle: e.test?.title,
+                hook: e.hook,
+                error: e.stack ?? `${e.name}: ${e.message}`,
+            })
+        })
     }
 }
 

@@ -53,7 +53,10 @@ export class ConsoleReporter {
             const result = event.result
             process.stdout.write(this.printResult(test, result))
         } else if (isEventType(event, 'error')) {
-            process.stdout.write(`Test suite "${event.groupTitle}" failed. (runId: "${event.runId}")\n`)
+            const message = event.hook
+                ? `Test hook ${event.hook} failed in "${[...event.ancestors, event.groupTitle].filter(Boolean).join(' › ')}".`
+                : `Test suite "${event.groupTitle}" failed.`
+            process.stdout.write(`${message} (runId: "${event.runId}")\n`)
             if (event.error) {
                 process.stdout.write(event.error.trim() + '\n')
             }

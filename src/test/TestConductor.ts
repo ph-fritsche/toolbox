@@ -32,6 +32,9 @@ export type TestConductorEventMap = {
     error: {
         runId: string
         groupTitle: string
+        ancestors?: string[]
+        testTitle?: string
+        hook?: string
         error?: string
     }
     done: {
