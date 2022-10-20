@@ -20,6 +20,7 @@ export class TestGroup extends BaseTestGroup {
         }
     ) {
         super(props)
+        this.parent = props.parent
     }
 
     private beforeAllCallbacks: BeforeCallback[] = []

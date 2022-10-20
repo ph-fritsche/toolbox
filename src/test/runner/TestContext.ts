@@ -7,7 +7,7 @@ export function setTestContext(on: {}, context: TestGroup) {
     const describe = (title: string, declare: TestGroupDeclare) => {
         const group = new TestGroup({
             title,
-            parent: this,
+            parent: context,
             children: [],
         })
         context.addChild(group)
