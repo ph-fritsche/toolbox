@@ -9,7 +9,7 @@ export class Test extends BaseTest {
     readonly timeout?: number
 
     constructor(
-        props: Partial<BaseTest> & {
+        props: ConstructorParameters<typeof BaseTest>[0] & {
             parent: TestGroup
             callback: TestCallback
             timeout?: number

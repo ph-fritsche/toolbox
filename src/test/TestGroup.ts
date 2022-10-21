@@ -1,7 +1,7 @@
+import { Entity } from './Entity'
 import { Test } from './Test'
-import { Serializable } from './types'
 
-export class TestGroup {
+export class TestGroup extends Entity {
     readonly parent?: TestGroup
     readonly title: string
 
@@ -11,8 +11,13 @@ export class TestGroup {
     }
 
     constructor(
-        props: Serializable<TestGroup>,
+        props: {
+            id?: string
+            title: string
+            children?: Array<TestGroup|Test>
+        },
     ) {
+        super(props)
         this.title = props.title
         this._children = props.children ?? []
         for (const c of this._children) {
@@ -21,6 +26,14 @@ export class TestGroup {
                 get: () => this
             })
         }
+    }
+
+    getHierarchy() {
+        const path: TestGroup[] = [this]
+        for (let p = this.parent; p; p = p.parent) {
+            path.push(p)
+        }
+        return path.reverse()
     }
 
     getTestsIteratorIterator<T extends TestGroup>(
@@ -69,8 +82,28 @@ export class TestGroup {
         }
     }
 
-    toJSON(): Serializable<TestGroup> {
+    *getDescendents<T extends TestGroup>(
+        this: T,
+    ) {
+        yield* this.getDescendentsGenerator(this.getTestsIteratorIterator())
+    }
+
+    private *getDescendentsGenerator<T extends TestGroup>(
+        this: T,
+        node: TestsIteratorGroupNode<T>,
+        parents: TestGroup[] = [],
+    ): Generator<Test|TestGroup> {
+        for (const child of node) {
+            yield child.element
+            if (isGroup(child)) {
+                yield* this.getDescendentsGenerator(child, [...parents, node.element])
+            }
+        }
+    }
+
+    toJSON() {
         return {
+            id: this.id,
             title: this.title,
             children: this._children,
         }

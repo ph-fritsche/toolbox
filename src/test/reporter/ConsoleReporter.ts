@@ -1,8 +1,10 @@
 import { makeEventTypeCheck } from '../../event'
 import { Test } from '../Test'
 import { TestConductor, TestConductorEventMap } from '../TestConductor'
+import { TestError } from '../TestError'
 import { TestGroup } from '../TestGroup'
 import { TestResult } from '../TestResult'
+import { TestRun } from '../TestRun'
 
 const icon = {
     timeout: '⌛',
@@ -53,33 +55,37 @@ export class ConsoleReporter {
             const result = event.result
             process.stdout.write(this.printResult(test, result))
         } else if (isEventType(event, 'error')) {
-            const message = event.hook
-                ? `Test hook ${event.hook} failed in "${[...event.ancestors, event.groupTitle].filter(Boolean).join(' › ')}".`
-                : `Test suite "${event.groupTitle}" failed.`
-            process.stdout.write(`${message} (runId: "${event.runId}")\n`)
-            if (event.error) {
-                process.stdout.write(event.error.trim() + '\n')
-            }
+            const group = conductor.testRuns.get(event.runId).groups.get(event.groupId)
+            process.stdout.write(`🚨 ${group.getHierarchy().map(t => t.title).join(' › ') }\n`)
+            process.stdout.write(event.hook
+                ? `Test hook ${ event.hook } failed.\n`
+                : `Test suite failed.\n`
+            )
+            process.stdout.write((event.error.stack ?? `${event.error.name}: ${event.error.message}`).trim() + '\n')
             process.stdout.write('\n')
         } else if (isEventType(event, 'done')) {
             process.stdout.write(`Results for run ${event.runId}:\n`)
-            const results = conductor.testRuns.get(event.runId).results
+            const run = conductor.testRuns.get(event.runId)
             process.stdout.write(this.printTree(
                 Array.from(conductor.testRuns.get(event.runId).suites.values()),
-                results,
+                run,
             ))
             const count = { success: 0, fail: 0, timeout: 0, skipped: 0 }
-            results.forEach(result => {
+            run.results.forEach(result => {
                 count[result.status]++
             })
-            process.stdout.write(`${results.size} tests were run: ${count.success} succeeded, ${count.fail} failed, ${count.timeout} timed out, ${count.skipped} were skipped`)
+            process.stdout.write(`${run.results.size} tests were run: ${count.success} succeeded, ${count.fail} failed, ${count.timeout} timed out, ${count.skipped} were skipped\n`)
+            if (run.errors.size) {
+                const n = Array.from(run.errors.values()).reduce((n, e) => n + e.length, 0)
+                process.stdout.write(`There were ${n} errors in test code.\n`)
+            }
             process.stdout.write('\n')
         }
     }
 
     protected printTree(
         children: Array<TestGroup|Test>,
-        results?: Map<string, TestResult>,
+        testRun?: TestRun,
         indent = ''
     ) {
         let t = ''
@@ -87,16 +93,20 @@ export class ConsoleReporter {
             const isLast = i === children.length - 1
             const child = children[i]
             if (isGroup(child)) {
-                t += indent + (isLast ? '└' : '├') + child.title + '\n'
+                t += indent + (isLast ? '└' : '├') + child.title
+                if (testRun?.errors.has(child.id)) {
+                    t += ` 🚨 ${testRun.errors.get(child.id).length} errors`
+                }
+                t += '\n'
                 t += this.printTree(
                     child.children,
-                    results,
+                    testRun,                    
                     indent + (isLast ? ' ' : '╎'),
                 )
-            } else if (results) {
+            } else if (testRun) {
                 t += this.printResult(
                     child,
-                    results.get(child.id),
+                    testRun.results.get(child.id),
                     {indent, isLast},
                 )
             } else {

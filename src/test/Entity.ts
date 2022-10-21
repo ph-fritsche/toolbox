@@ -8,7 +8,7 @@ export class Entity {
 }
 
 const chars = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
-function makeId(length: number) {
+export function makeId(length: number) {
     let c = ''
     while (c.length < length) {
         c += chars[Math.round(Math.random() * chars.length - 0.5)]

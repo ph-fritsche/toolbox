@@ -20,6 +20,7 @@ export class NodeTestConductor extends TestConductor {
         runId: string,
         setupFiles: string[],
         testFile: string,
+        id: string,
         name: string,
     ) {
         const child = spawn('node', [
@@ -57,7 +58,7 @@ const exit = process.exit
         }
     }
 
-    const suite = new TestGroup(${JSON.stringify({title: name})})
+    const suite = new TestGroup(${JSON.stringify({id, title: name})})
     setTestContext(globalThis, suite)
 
     ${setupFiles.map(f => `await execModule(${JSON.stringify(f)})`).join(';')}

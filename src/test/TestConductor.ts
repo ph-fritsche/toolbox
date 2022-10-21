@@ -1,9 +1,11 @@
 import { createServer, IncomingMessage, ServerResponse } from 'http'
 import { EventEmitter } from '../event'
-import { Entity } from './Entity'
+import { Entity, makeId } from './Entity'
 import { Test } from './Test'
+import { TestError } from './TestError'
 import { TestGroup } from './TestGroup'
 import { TestResult } from './TestResult'
+import { TestRun } from './TestRun'
 
 interface Files {
     server: URL
@@ -31,11 +33,10 @@ export type TestConductorEventMap = {
     }
     error: {
         runId: string
-        groupTitle: string
-        ancestors?: string[]
-        testTitle?: string
+        groupId: string
+        testId?: string
         hook?: string
-        error?: string
+        error: TestError
     }
     done: {
         runId: string
@@ -50,23 +51,27 @@ export abstract class TestConductor extends Entity {
         super()
         this.reporterServer.listen(0, '127.0.0.1')
 
-        this.emitter.addListener('start', ({runId}) => {
-            this.testRuns.set(runId, {
-                suites: new Set(),
-                tests: new Map(),
-                results: new Map(),
-            })
-        })
         this.emitter.addListener('schedule', ({runId, group}) => {
             const run = this.testRuns.get(runId)
-            run.suites.add(group)
-            for (const t of group.getTests()) {
-                run.tests.set(t.id, t)
+            run.suites.set(group.id, group)
+            for (const t of group.getDescendents()) {
+                if (isGroup(t)) {
+                    run.groups.set(t.id, t)
+                } else {
+                    run.tests.set(t.id, t)
+                }
             }
         })
         this.emitter.addListener('result', ({runId, testId, result}) => {
             const run = this.testRuns.get(runId)
             run.results.set(testId, result)
+        })
+        this.emitter.addListener('error', ({runId, groupId, testId, hook, error}) => {
+            const run = this.testRuns.get(runId)
+            if (!run.errors.has(groupId)) {
+                run.errors.set(groupId, [])
+            }
+            run.errors.get(groupId).push({hook, testId, error})
         })
     }
 
@@ -99,11 +104,7 @@ export abstract class TestConductor extends Entity {
         }
     })
 
-    readonly testRuns = new Map<string, {
-        suites: Set<TestGroup>
-        tests: Map<string, Test>
-        results: Map<string, TestResult>
-    }>()
+    readonly testRuns = new Map<string, TestRun>()
 
     async runTests(
         setup: Files[],
@@ -116,27 +117,45 @@ export abstract class TestConductor extends Entity {
                 const base = this.resolveBasePath(f)
                 return f.paths.map(p => `${base}${p}`)
             }))
-        const testFiles = ([] as Array<{name: string, url: string}>)
+        const testFiles = ([] as Array<{id: string, name: string, url: string}>)
             .concat(...tests.map(f => {
                 const base = this.resolveBasePath(f)
                 return f.paths.map(p => ({
+                    id: makeId(6),
                     name: p,
                     url: `${base}${p}`
                 }))
             }))
 
+        const run = new TestRun({id: runId})
+        this.testRuns.set(runId, run)
+
         this.emitter.dispatch('start', {runId, setupFiles, testFiles})
 
-        await Promise.all(testFiles.map(f => this.runTestSuite(runId, setupFiles, f.url, f.name)
+        testFiles.forEach(f => {
+            const t = new TestGroup({
+                id: f.id,
+                title: f.name,
+                children: [],
+            })
+            run.suites.set(f.id, t)
+            run.groups.set(f.id, t)
+        })
+
+        await Promise.all(testFiles.map(f => this.runTestSuite(runId, setupFiles, f.url, f.id, f.name)
             .then(
                 () => this.emitter.dispatch('complete', {
                     runId,
                     groupTitle: f.name
                 }),
-                error => this.emitter.dispatch('error', {
+                e => this.emitter.dispatch('error', {
                     runId,
-                    groupTitle: f.name,
-                    error: typeof error === 'string' ? error : undefined,
+                    groupId: f.id,
+                    error: new TestError({
+                        name: e instanceof Error ? e.name : 'Error',
+                        message: e instanceof Error ? e.message : String(e),
+                        stack: e instanceof Error ? e.stack : String(e),
+                    })
                 }),
             )
         ))
@@ -148,6 +167,7 @@ export abstract class TestConductor extends Entity {
         runId: string,
         setupFiles: string[],
         testFile: string,
+        id: string,
         name: string,
     ): Promise<void>
 
@@ -189,4 +209,10 @@ function reviveReportProps(key: string, value: unknown) {
         }
     }
     return value
+}
+
+function isGroup(
+    node: Test|TestGroup
+): node is TestGroup {
+    return 'children' in node
 }

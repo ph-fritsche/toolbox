@@ -1,13 +1,15 @@
 import { Entity } from './Entity'
 import { TestGroup } from './TestGroup'
-import { Serializable } from './types'
 
 export class Test extends Entity {
     readonly parent?: TestGroup
     readonly title: string
 
     constructor(
-        props: Partial<Test>,
+        props: {
+            id?: string
+            title: string
+        },
     ) {
         super(props)
         for (const k in props) {
@@ -25,7 +27,7 @@ export class Test extends Entity {
         return p.reverse()
     }
 
-    toJSON(): Serializable<Test> {
+    toJSON() {
         return {
             id: this.id,
             title: this.title,

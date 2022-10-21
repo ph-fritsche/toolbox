@@ -111,17 +111,12 @@ export class TestRunner {
 
     protected async reportErrors(runId: string, errors: TestError[]) {
         errors.forEach(e => {
-            const ancestors: string[] = []
-            for (let p = e.context.parent; p; p = p.parent) {
-                ancestors.push(p.title)
-            }
             this.report('error', {
                 runId,
-                groupTitle: e.context.title,
-                ancestors,
-                testTitle: e.test?.title,
+                groupId: e.context.id,
+                testId: e.test?.id,
                 hook: e.hook,
-                error: e.stack ?? `${e.name}: ${e.message}`,
+                error: e,
             })
         })
     }

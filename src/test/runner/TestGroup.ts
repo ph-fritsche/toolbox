@@ -1,5 +1,4 @@
-import { TestGroup as BaseTestGroup, TestsIteratorGroupNode } from '../TestGroup'
-import { Serializable } from '../types'
+import { TestGroup as BaseTestGroup } from '../TestGroup'
 import { Test } from './Test'
 import { TestError } from './TestError'
 
@@ -21,7 +20,7 @@ export class TestGroup extends BaseTestGroup {
     }
 
     constructor(
-        props: Serializable<BaseTestGroup> & {
+        props: ConstructorParameters<typeof BaseTestGroup>[0] & {
             parent?: TestGroup
         }
     ) {

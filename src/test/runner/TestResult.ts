@@ -6,7 +6,7 @@ export class TestResult extends BaseTestResult {
 
     constructor(
         test: Test,
-        props: Partial<TestResult> = {},
+        props: Omit<ConstructorParameters<typeof BaseTestResult>[0], 'status'> = {},
     ) {
         super({
             status: getStatus(props.error, props.duration),

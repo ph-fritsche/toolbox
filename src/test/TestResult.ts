@@ -6,11 +6,11 @@ export class TestResult {
     readonly status: 'skipped' | 'timeout' | 'fail' | 'success'
 
     constructor(
-        props: Serializable<TestResult>,
+        props: Pick<TestResult, 'duration'|'error'|'status'>,
     ) {
-        for(const k in props) {
-            this[k] = props[k]
-        }
+        this.status = props.status
+        this.duration = props.duration
+        this.error = props.error
     }
 
     toJSON(): Serializable<TestResult> {

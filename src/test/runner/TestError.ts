@@ -1,27 +1,17 @@
-import { Test } from "../Test"
-import { TestGroup } from "./TestGroup"
+import { Test } from '../Test'
+import { TestGroup } from './TestGroup'
+import { TestError as BaseTestError } from '../TestError'
 
-export class TestError extends Error {
+export class TestError extends BaseTestError {
     constructor(
         readonly context: TestGroup,
         readonly hook: string,
         reason: string|Error,
         readonly test?: Test,
     ) {
-        const {message, cause} = typeof reason === 'string'
-            ? {message: reason, cause: undefined}
+        const {message, cause = undefined, name = undefined, stack = undefined} = typeof reason === 'string'
+            ? {message: reason}
             : reason
-        super(message, {cause})
-        if (reason instanceof Error) {
-            this.stack = reason.stack
-        }
-    }
-
-    toJSON() {
-        return {
-            name: this.name,
-            message: this.message,
-            stack: this.stack,
-        }
+        super({message, name, stack, cause})
     }
 }
