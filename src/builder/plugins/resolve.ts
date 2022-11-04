@@ -125,7 +125,7 @@ export function createNodeResolvePlugin(
             }
 
             if (isNodeJsBuiltin(moduleName)) {
-                return moduleName
+                return
             }
 
             let resolved: string|undefined = undefined
