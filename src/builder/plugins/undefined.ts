@@ -8,12 +8,12 @@ export function createUndefinedPlugin(): Plugin {
             if (!importer) {
                 return
             }
-            console.warn(`Replacing missing module "${source}" imported by "${importer}" with undefined.`)
+            console.warn(`Replacing missing module "${source}" imported by "${importer}" with empty object.`)
             return `${PREFIX}${source}`
         },
         load(id) {
             if (id.startsWith(PREFIX)) {
-                return 'export default undefined\nexport {}\n'
+                return 'export default {}\nexport {}\n'
             }
         },
     }
