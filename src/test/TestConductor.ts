@@ -80,7 +80,11 @@ export abstract class TestConductor extends Entity {
     readonly emitter = new EventEmitter<TestConductorEventMap>()
 
     protected readonly reporterServer = createServer(async <K extends 'schedule' | 'result'>(req: IncomingMessage, res: ServerResponse) => {
-        if (req.method === 'POST' && req.headers["content-type"] === 'application/json') {
+        res.setHeader('access-control-allow-origin', '*')
+        if (req.method === 'OPTIONS') {
+            res.setHeader('access-control-allow-headers', '*')
+            res.end();
+        } else if (req.method === 'POST' && req.headers["content-type"] === 'application/json') {
             const [type, data] = await new Promise<[K, TestConductorEventMap[K]]>((resolve, reject) => {
                 let c = ''
                 req.on('data', b => {
