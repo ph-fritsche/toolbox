@@ -7,6 +7,7 @@ import { OutputFilesMap } from '../builder'
 
 type TmpFileServerEventMap = FileServerEventMap & {
     update: {
+        files: OutputFilesMap
         prune: string[]
         mkDir: string[]
         write: string[]
@@ -32,6 +33,11 @@ export class TmpFileServer extends FileServer<TmpFileServerEventMap> {
                 }
             })
         })
+    }
+
+    protected _files: Promise<OutputFilesMap> = Promise.resolve(new Map())
+    get files() {
+        return this._files
     }
 
     updateFiles(files: OutputFilesMap) {

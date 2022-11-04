@@ -1,5 +1,5 @@
 import {createServer, IncomingMessage, ServerResponse} from 'http'
-import { EventEmitter } from '../event'
+import { FileProvider } from './FileProvider'
 import { FileServer, FileServerEventMap } from './FileServer'
 
 type HttpFileServerEventMap = FileServerEventMap & {
@@ -11,6 +11,7 @@ type HttpFileServerEventMap = FileServerEventMap & {
 
 export class HttpFileServer extends FileServer<HttpFileServerEventMap> {
     constructor(
+        public provider: FileProvider,
         port = 0,
         host = '127.0.0.1',
     ) {
@@ -24,30 +25,34 @@ export class HttpFileServer extends FileServer<HttpFileServerEventMap> {
                     rej()
                 }
             })
-            this._server.on('error', e => {
+            this.server.on('error', e => {
                 rej(e)
                 throw e
             })
-            this._server.on('close', () => {
+            this.server.on('close', () => {
                 this._url = Promise.reject('Server is already closed.')
             })
         })
     }
-    private _server = createServer(async (req, res) => {
+    readonly server = createServer(async (req, res) => {
         if (req.method === 'GET') {
             const [subpath, line, char] = (req.url?.startsWith('/') ? req.url.substring(1) : '').split(':')
-            const file = subpath && (await this.files).get(subpath)
-            if (file) {
-                const queryPos = subpath.indexOf('?')
-                const filename = subpath.substring(0, queryPos >= 0 ? queryPos : undefined)
-                if (filename.endsWith('.js')) {
-                    res.setHeader('Content-Type', 'text/javascript')
-                }
-                res.end(file.content)
-            } else {
-                res.writeHead(404, 'Not Found')
-                res.end()
-            }
+            const file = subpath ? this.provider.getFile(subpath) : Promise.reject()
+            await file.then(
+                ({content}) => {
+                    const queryPos = subpath.indexOf('?')
+                    const filename = subpath.substring(0, queryPos >= 0 ? queryPos : undefined)
+                    if (filename.endsWith('.js')) {
+                        res.setHeader('Content-Type', 'text/javascript')
+                    }
+                    res.setHeader('Access-Control-Allow-Origin', '*')
+                    res.end(content)
+                },
+                () => {
+                    res.writeHead(404, 'Not Found')
+                    res.end()
+                },
+            )
         } else {
             res.writeHead(501, 'Method not implemented')
             res.end()
@@ -59,12 +64,8 @@ export class HttpFileServer extends FileServer<HttpFileServerEventMap> {
         })
     })
 
-    get server() {
-        return this._server
-    }
-
     private getUrl() {
-        const addr = this._server.address()
+        const addr = this.server.address()
         if (!addr) {
             return
         } else if (typeof addr === 'string') {
