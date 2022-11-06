@@ -1,4 +1,5 @@
 import createCjsPlugin from '@rollup/plugin-commonjs'
+import createNodeBuiltinsPlugin from 'rollup-plugin-node-builtins'
 import { parseTsConfig } from './tsconfig'
 import { createTsResolvePlugin, createNodeResolvePlugin } from './plugins/resolve'
 import { createTransformPlugin } from './plugins/transform'
@@ -118,5 +119,30 @@ export function connectDependencyBuilder(
         if (build) {
             dependency.debounceBuild()
         }
+    })
+}
+
+export function createBundleBuilder(
+    {
+    }: {} = {},
+    id = 'bundle',
+) {
+    return new Builder({
+        id,
+        plugins: [
+            createCjsPlugin({
+                include: '**/node_modules/**',
+                requireReturnsDefault: 'preferred',
+            }),
+            createJsonPlugin(),
+            createNodeBuiltinsPlugin(),
+            createNodeResolvePlugin(),
+            createUndefinedPlugin(),
+        ],
+        isExternal: () => false,
+        outputOptions: {
+            preserveModules: false,
+            format: 'iife',
+        },
     })
 }
