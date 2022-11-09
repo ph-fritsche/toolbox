@@ -7,7 +7,7 @@ import { TestGroup } from './TestGroup'
 import { TestResult } from './TestResult'
 import { TestRun } from './TestRun'
 
-interface Files {
+export interface ServedFiles {
     server: URL
     paths: string[]
 }
@@ -108,33 +108,36 @@ export abstract class TestConductor extends Entity {
         }
     })
 
+    protected setupFiles: string[]
+    setSetupFiles(
+        files: ServedFiles[],
+    ) {
+        this.setupFiles = files.map(f => {
+            const base = this.resolveBasePath(f)
+            return f.paths.map(p => `${base}${p}`)
+        }).flat(1)
+    }
+
     readonly testRuns = new Map<string, TestRun>()
 
     async runTests(
-        setup: Files[],
-        tests: Files[],
+        tests: ServedFiles[],
     ) {
         const runId = `${this.id}:${++this.runId}`
 
-        const setupFiles = ([] as string[])
-            .concat(...setup.map(f => {
-                const base = this.resolveBasePath(f)
-                return f.paths.map(p => `${base}${p}`)
+        const testFiles = tests.map(f => {
+            const base = this.resolveBasePath(f)
+            return f.paths.map(p => ({
+                id: makeId(6),
+                name: p,
+                url: `${base}${p}`
             }))
-        const testFiles = ([] as Array<{id: string, name: string, url: string}>)
-            .concat(...tests.map(f => {
-                const base = this.resolveBasePath(f)
-                return f.paths.map(p => ({
-                    id: makeId(6),
-                    name: p,
-                    url: `${base}${p}`
-                }))
-            }))
+        }).flat(1)
 
         const run = new TestRun({id: runId})
         this.testRuns.set(runId, run)
 
-        this.emitter.dispatch('start', {runId, setupFiles, testFiles})
+        this.emitter.dispatch('start', {runId, setupFiles: this.setupFiles, testFiles})
 
         testFiles.forEach(f => {
             const t = new TestGroup({
@@ -146,7 +149,7 @@ export abstract class TestConductor extends Entity {
             run.groups.set(f.id, t)
         })
 
-        await Promise.all(testFiles.map(f => this.runTestSuite(runId, setupFiles, f.url, f.id, f.name)
+        await Promise.all(testFiles.map(f => this.runTestSuite(runId, f.url, f.id, f.name)
             .then(
                 () => this.emitter.dispatch('complete', {
                     runId,
@@ -169,14 +172,13 @@ export abstract class TestConductor extends Entity {
 
     protected abstract runTestSuite(
         runId: string,
-        setupFiles: string[],
         testFile: string,
         id: string,
         name: string,
     ): Promise<void>
 
     protected resolveBasePath(
-        files: Files,
+        files: ServedFiles,
     ): string {
         if (!this.supportedFilesProtocols.includes(files.server.protocol)) {
             throw new Error(`The TestRunner implementation does not support FileServer protocol for "${String(files.server)}"`)

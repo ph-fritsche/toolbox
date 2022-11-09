@@ -23,7 +23,6 @@ export class ChromeTestConductor extends TestConductor {
 
     protected async runTestSuite(
         runId: string,
-        setupFiles: string[],
         testFile: string,
         id: string,
         name: string,
@@ -55,7 +54,7 @@ await ((async () => {
     const suite = new TestGroup(${JSON.stringify({ id, title: name })})
     setTestContext(globalThis, suite)
 
-    ${setupFiles.map(f => `await execModule(${JSON.stringify(f)})`).join(';')}
+    ${this.setupFiles.map(f => `await execModule(${JSON.stringify(f)})`).join(';')}
 
     await execModule(${JSON.stringify(testFile)})
 
