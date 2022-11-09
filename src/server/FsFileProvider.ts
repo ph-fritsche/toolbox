@@ -4,9 +4,9 @@ import { File, FileProvider } from './FileProvider'
 
 export class FsFileProvider extends FileProvider {
     constructor(
-        readonly dir: string
+        readonly dir: string,
     ) {
-        super()
+        super(path.resolve(dir))
     }
 
     protected async loadFile(filePath: string): Promise<File> {

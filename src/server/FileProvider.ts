@@ -1,11 +1,13 @@
 export interface File {
     content: string|Uint8Array
+    origin?: string
     mtime?: Date
 }
 
 export class FileProvider {
     constructor(
-        public files: Map<string, Promise<File>> = new Map()
+        public origin: string = process.cwd(),
+        public files: Map<string, Promise<File>> = new Map(),
     ) {}
 
     async getFile(filePath: string): Promise<File> {
