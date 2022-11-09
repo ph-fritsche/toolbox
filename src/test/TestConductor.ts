@@ -110,7 +110,7 @@ export abstract class TestConductor extends Entity {
 
     protected setupFiles: string[]
     setSetupFiles(
-        files: ServedFiles[],
+        ...files: ServedFiles[]
     ) {
         this.setupFiles = files.map(f => {
             const base = this.resolveBasePath(f)
@@ -121,7 +121,7 @@ export abstract class TestConductor extends Entity {
     readonly testRuns = new Map<string, TestRun>()
 
     async runTests(
-        tests: ServedFiles[],
+        ...tests: ServedFiles[]
     ) {
         const runId = `${this.id}:${++this.runId}`
 
