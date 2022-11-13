@@ -11,6 +11,8 @@ const icon = {
     fail: '❌',
     success: '✓',
     skipped: '🚫',
+    error: '🚨',
+    missing: '⚠',
 }
 
 const isEventType = makeEventTypeCheck<TestConductorEventMap>()
@@ -56,7 +58,7 @@ export class ConsoleReporter {
             process.stdout.write(this.printResult(test, result))
         } else if (isEventType(event, 'error')) {
             const group = conductor.testRuns.get(event.runId).groups.get(event.groupId)
-            process.stdout.write(`🚨 ${group.getHierarchy().map(t => t.title).join(' › ') }\n`)
+            process.stdout.write(`${icon.error} ${group.getHierarchy().map(t => t.title).join(' › ') }\n`)
             process.stdout.write(event.hook
                 ? `Test hook ${ event.hook } failed.\n`
                 : `Test suite failed.\n`
@@ -95,7 +97,7 @@ export class ConsoleReporter {
             if (isGroup(child)) {
                 t += indent + (isLast ? '└' : '├') + child.title
                 if (testRun?.errors.has(child.id)) {
-                    t += ` 🚨 ${testRun.errors.get(child.id).length} errors`
+                    t += ` ${icon.error} ${testRun.errors.get(child.id).length} errors`
                 }
                 t += '\n'
                 t += this.printTree(
@@ -118,23 +120,23 @@ export class ConsoleReporter {
 
     protected printResult(
         test: Test,
-        result: TestResult,
+        result?: TestResult,
         tree?: {
             indent: string
             isLast: boolean
         }
     ) {
         let t = ''
-        const statusBox = `[${icon[result.status] ?? result.status}]`
+        const statusBox = `[${result ? icon[result.status] ?? result.status : icon.missing}]`
         if (tree) {
-            if (result.error) {
+            if (result?.error) {
                 t += tree.indent + '╎' + '\n'
             }
             t += tree.indent + (tree.isLast ? '└' : '├') + statusBox + test.title + '\n'
         } else {
             t += statusBox + ' ' + test.ancestors().concat([test]).map(n => n.title).join(' › ') + '\n'
         }
-        if (result.error) {
+        if (result?.error) {
             t += result.error.stack.trim() || `${result.error.name}: ${result.error.message.trim()}`
             t += '\n'
             t += tree
