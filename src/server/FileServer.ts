@@ -1,9 +1,15 @@
-import { EventEmitter } from "../event";
+import { EventEmitter } from '../event'
+import { FileProvider } from './FileProvider'
 
 export type FileServerEventMap = {
 }
 
 export abstract class FileServer<EventMap extends FileServerEventMap = FileServerEventMap> {
+    constructor(
+        public provider: FileProvider,
+    ) {
+    }
+
     protected _url: Promise<URL> = new SafeRejectedPromise('FileServer is not initialized.')
     get url() {
         return this._url

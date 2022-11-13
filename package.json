@@ -17,7 +17,8 @@
         "puppeteer-core": "^19.2.0",
         "resolve": "^1.22.1",
         "rollup": "^2.78.1",
-        "rollup-plugin-node-builtins": "^2.1.2"
+        "rollup-plugin-node-builtins": "^2.1.2",
+        "source-map": "^0.7.4"
     },
     "devDependencies": {
         "@ph.fritsche/scripts-config": "^2.4.0",

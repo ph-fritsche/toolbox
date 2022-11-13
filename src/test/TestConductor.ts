@@ -1,5 +1,7 @@
 import { createServer, IncomingMessage, ServerResponse } from 'http'
+import { SourceMapConsumer } from 'source-map'
 import { EventEmitter } from '../event'
+import { FileServer } from '../server'
 import { Entity, makeId } from './Entity'
 import { Test } from './Test'
 import { TestError } from './TestError'
@@ -90,9 +92,12 @@ export abstract class TestConductor extends Entity {
                 req.on('data', b => {
                     c += String(b)
                 })
-                req.on('end', () => {
+                req.on('end', async () => {
                     try {
                         const {type, ...data} = JSON.parse(c, reviveReportProps)
+                        if (type === 'result' && data.result.error?.stack) {
+                            data.result.error.stack = await this.rewriteStack(data.result.error.stack)
+                        }
                         resolve([type, data])
                     } catch(e) {
                         reject(e)
@@ -155,13 +160,13 @@ export abstract class TestConductor extends Entity {
                     runId,
                     groupTitle: f.name
                 }),
-                e => this.emitter.dispatch('error', {
+                async e => this.emitter.dispatch('error', {
                     runId,
                     groupId: f.id,
                     error: new TestError({
                         name: e instanceof Error ? e.name : 'Error',
                         message: e instanceof Error ? e.message : String(e),
-                        stack: e instanceof Error ? e.stack : String(e),
+                        stack: e instanceof Error ? await this.rewriteStack(e.stack) : String(e),
                     })
                 }),
             )
@@ -176,6 +181,53 @@ export abstract class TestConductor extends Entity {
         id: string,
         name: string,
     ): Promise<void>
+
+    protected readonly fileServers = new Map<string, FileServer>()
+    async registerFileServer(server: FileServer) {
+        this.fileServers.set(String(await server.url), server)
+    }
+    protected async rewriteStack(
+        stack: string,
+    ) {
+        const re = /(?<pre>\s+at [^\n)]+\()(?<url>\w+:\/\/[^/?]*[^)]*):(?<line>\d+):(?<column>\d+)(?<post>\)$)/gm
+        let r: RegExpExecArray
+        while (r = re.exec(stack)) {
+            const url = r.groups.url
+            const line = Number(r.groups.line)
+            const column = Number(r.groups.column)
+            for (const [serverUrl, server] of this.fileServers.entries()) {
+                if (url.startsWith(serverUrl) && (serverUrl.endsWith('/') || url[serverUrl.length] === '/')) {
+                    const subpath = trimStart(url.substring(serverUrl.length), '/')
+                    let subPathAndPos = `${subpath}:${line}:${column}`
+                    const file = await server.provider.getFile(subpath)
+                    const mapMatch = String(file.content).match(/\n\/\/# sourceMappingURL=data:application\/json;charset=utf-8;base64,(?<encodedMap>[0-9a-zA-Z+\/]+)\s*$/)
+                    if (mapMatch) {
+                        const map = JSON.parse(Buffer.from(mapMatch.groups.encodedMap, 'base64').toString('utf8'))
+                        const original = await SourceMapConsumer.with(map, null, consumer => {
+                            return consumer.originalPositionFor({ line, column, })
+                        })
+                        if (original.source) {
+                            subPathAndPos = `${subpath.substring(0, subpath.length - map.file.length)}${original.source}:${original.line}:${original.column}`
+                        }
+                    }
+                    const newStackEntry = r.groups.pre
+                        + server.provider.origin
+                        + (server.provider.origin.endsWith('/') ? '' : '/')
+                        + subPathAndPos
+                        + r.groups.post
+
+                    stack = stack.substring(0, r.index)
+                        + newStackEntry
+                        + stack.substring(r.index + r[0].length)
+
+                    re.lastIndex += newStackEntry.length - r[0].length
+
+                    break
+                }
+            }
+        }
+        return stack
+    }
 
     protected resolveBasePath(
         files: ServedFiles,
@@ -221,4 +273,15 @@ function isGroup(
     node: Test|TestGroup
 ): node is TestGroup {
     return 'children' in node
+}
+
+function trimStart(
+    str: string,
+    chars: string,
+) {
+    for (let i = 0;; i++) {
+        if (i >= str.length || !chars.includes(str[i])) {
+            return str.substring(i)
+        }
+    }
 }

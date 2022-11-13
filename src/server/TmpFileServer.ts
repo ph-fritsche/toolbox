@@ -4,6 +4,7 @@ import path from 'path'
 import os from 'os'
 import { FileServer, FileServerEventMap } from './FileServer'
 import { OutputFilesMap } from '../builder'
+import { FileProvider } from './FileProvider'
 
 type TmpFileServerEventMap = FileServerEventMap & {
     update: {
@@ -18,7 +19,7 @@ export class TmpFileServer extends FileServer<TmpFileServerEventMap> {
     constructor(
         prefix = 'toolbox-',
     ) {
-        super()
+        super(new FileProvider()) // unused - TODO: fix compatibility with abstract
         this._url = new Promise((res, rej) => {
             fsSync.mkdtemp(path.join(os.tmpdir(), prefix), (err, dir) => {
                 if (err) {

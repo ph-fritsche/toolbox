@@ -18,7 +18,7 @@ export async function serveToolboxRunner() {
     const s = await serveDir(dir)
     return {
         ...s,
-        url: `${s.url}/test/runner/index.js`
+        url: `${s.url}test/runner/index.js`,
     }
 }
 

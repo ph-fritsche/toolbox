@@ -11,11 +11,11 @@ type HttpFileServerEventMap = FileServerEventMap & {
 
 export class HttpFileServer extends FileServer<HttpFileServerEventMap> {
     constructor(
-        public provider: FileProvider,
+        provider: FileProvider,
         port = 0,
         host = '127.0.0.1',
     ) {
-        super()
+        super(provider)
         this._url = new Promise<URL>((res, rej) => {
             this.server.listen(port, host, () => {
                 const url = this.getUrl()
