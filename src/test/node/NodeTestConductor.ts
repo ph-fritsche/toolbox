@@ -39,6 +39,10 @@ export class NodeTestConductor extends TestConductor {
         child.stderr.on('data', d => {
             buffer.err += String(d)
         })
+        const stdioClosed = Promise.all([
+            new Promise(r => child.stdout.on('close', r)),
+            new Promise(r => child.stderr.on('close', r)),
+        ])
 
         const promised = new Promise<typeof buffer & {
             code: number
@@ -49,10 +53,7 @@ export class NodeTestConductor extends TestConductor {
                 rej(error)
             })
             child.on('exit', (code, signal) => {
-                Promise.all([
-                    new Promise(r => child.stdout.on('close', r)),
-                    new Promise(r => child.stderr.on('close', r)),
-                ]).then(() => {
+                stdioClosed.then(() => {
                     ;(code ? rej : res)({
                         ...buffer,
                         code,
