@@ -1,5 +1,6 @@
 import { Test, TestCallback } from './Test'
 import { AfterCallback, BeforeCallback, TestGroup } from './TestGroup'
+import { vsprintf } from './sprintf'
 
 type TestGroupDeclare<Args extends [] = []> = (this: TestGroup, ...args: Args) => void
 
@@ -17,7 +18,7 @@ export function setTestContext(on: {}, context: TestGroup) {
     }
     describe.each = <Args extends []>(cases: Iterable<Args>) => (title: string, declare: TestGroupDeclare<Args>) => {
         for (const args of cases) {
-            describe(title, function(this: TestGroup) {
+            describe(vsprintf(title, args), function(this: TestGroup) {
                 declare.apply(this, args)
             })
         }
@@ -41,7 +42,7 @@ export function setTestContext(on: {}, context: TestGroup) {
     ) => {
         for (const args of cases) {
             context.addChild(new Test({
-                title,
+                title: vsprintf(title, args),
                 parent: context,
                 callback: function(this: Test) {
                     cb.apply(this, args)
