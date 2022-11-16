@@ -29,16 +29,39 @@ export class NodeTestConductor extends TestConductor {
             '--experimental-loader', loaderUrl.pathname,
             '--require', prepareUrl.pathname,
         ], {
-            stdio: ['pipe', 'inherit', 'inherit'],
+            stdio: ['pipe', 'pipe', 'pipe'],
         })
 
-        const promised = new Promise<NodeJS.Signals|null>((res, rej) => {
+        const buffer = {out: '', err: ''}
+        child.stdout.on('data', d => {
+            buffer.out += String(d)
+        })
+        child.stderr.on('data', d => {
+            buffer.err += String(d)
+        })
+
+        const promised = new Promise<typeof buffer & {
+            code: number
+            signal?: NodeJS.Signals
+            toString(): string
+        }>((res, rej) => {
+            child.on('error', error => {
+                rej(error)
+            })
             child.on('exit', (code, signal) => {
-                if (code) {
-                    rej(code)
-                } else {
-                    res(signal)
-                }
+                Promise.all([
+                    new Promise(r => child.stdout.on('close', r)),
+                    new Promise(r => child.stderr.on('close', r)),
+                ]).then(() => {
+                    ;(code ? rej : res)({
+                        ...buffer,
+                        code,
+                        signal,
+                        toString() {
+                            return [buffer.out, buffer.err].filter(Boolean).join('\n') + '\n'
+                        }
+                    })
+                })
             })
         })
 
