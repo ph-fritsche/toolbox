@@ -4,6 +4,8 @@ import { vsprintf } from './sprintf'
 
 type TestGroupDeclare<Args extends [] = []> = (this: TestGroup, ...args: Args) => void
 
+export type TestContext = ReturnType<typeof setTestContext>
+
 export function setTestContext(on: {}, context: TestGroup) {
     const describe = (title: string, declare: TestGroupDeclare) => {
         const group = new TestGroup({
@@ -63,17 +65,21 @@ export function setTestContext(on: {}, context: TestGroup) {
     const afterEach = (cb: AfterCallback) => {
         context.addAfterEach(cb)
     }
-    Object.entries({
+
+    const testContextMethods = {
         describe,
         test,
         beforeAll,
         beforeEach,
         afterAll,
         afterEach,
-    }).forEach(([binding, fn]) => {
+    }
+    Object.entries(testContextMethods).forEach(([binding, fn]) => {
         Object.defineProperty(on, binding, {
             configurable: true,
             get: () => fn,
         })
     })
+
+    return testContextMethods
 }
