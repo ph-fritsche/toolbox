@@ -42,6 +42,7 @@ export class ChromeTestConductor extends TestConductor {
 import { setTestContext, TestGroup, TestRunner } from "${this.testRunnerModule}"
 
 const fetch = window.fetch.bind(window)
+const setTimeout = window.setTimeout
 
 await ((async () => {
     const execModule = async (moduleId) => {
@@ -58,7 +59,7 @@ await ((async () => {
 
     await execModule(${JSON.stringify(testFile)})
 
-    const runner = new TestRunner(${JSON.stringify(this.reporterServerUrl)}, fetch)
+    const runner = new TestRunner(${JSON.stringify(this.reporterServerUrl)}, fetch, setTimeout)
     await runner.run(${JSON.stringify(runId)}, suite)
 })()).then(
     r => window['__${callbackId}-resolve'](String(r)),

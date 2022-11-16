@@ -11,6 +11,7 @@ export class TestRunner {
     constructor(
         public reporterUrl: URL|string,
         protected fetch: fetchApi,
+        protected setTimeout: (callback: () => void, ms?: number) => number,
     ) {}
 
     async run(
@@ -74,12 +75,12 @@ export class TestRunner {
     protected async execTest(test: Test) {
         const timeout = test.timeout ?? 5000
         const t0 = performance.now()
-        let timer: NodeJS.Timeout
+        let timer: number
         let reject: () => void = () => void 0
         try {
             await Promise.race([
                 new Promise((res, rej) => {
-                    timer = setTimeout(() => rej(
+                    timer = this.setTimeout(() => rej(
                         new TimeoutError(`Test "${test.title}" timed out after ${timeout}ms.`)
                     ), timeout)
                 }),

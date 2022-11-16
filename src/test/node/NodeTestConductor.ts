@@ -72,6 +72,7 @@ import { setTestContext, TestGroup, TestRunner } from "${this.testRunnerModule}"
 import fetch from "${String(nodeFetchUrl)}"
 
 const exit = process.exit
+const setTimeout = global.setTimeout
 
 ;(async () => {
     const execModule = async (moduleId) => {
@@ -88,7 +89,7 @@ const exit = process.exit
 
     await execModule(${JSON.stringify(testFile)})
 
-    const runner = new TestRunner(${JSON.stringify(this.reporterServerUrl)}, fetch)
+    const runner = new TestRunner(${JSON.stringify(this.reporterServerUrl)}, fetch, setTimeout)
     await runner.run(${JSON.stringify(runId)}, suite)
 
     exit()
