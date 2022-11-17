@@ -33,7 +33,7 @@ export function setTestContext(on: {}, context: TestGroup) {
             describe(
                 vsprintf(title, argsArray),
                 function(this: TestGroup) {
-                    declare.apply(this, argsArray)
+                    return declare.apply(this, argsArray)
                 },
             )
         }
@@ -61,7 +61,7 @@ export function setTestContext(on: {}, context: TestGroup) {
                 title: vsprintf(title, argsArray),
                 parent: context,
                 callback: function(this: Test) {
-                    cb.apply(this, argsArray)
+                    return cb.apply(this, argsArray)
                 },
                 timeout,
             }))
