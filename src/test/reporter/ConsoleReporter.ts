@@ -32,6 +32,13 @@ export class ConsoleReporter {
         events.forEach(k => conductor.emitter.removeListener(k, e => this.log(conductor, e)))
     }
 
+    public readonly config = {
+        schedule: false,
+        result: true,
+        error: true,
+        done: true,
+    }
+
     protected lastLog = ''
 
     protected log<
@@ -40,7 +47,7 @@ export class ConsoleReporter {
         conductor: TestConductor,
         event: TestConductorEventMap[K] & {type: K},
     ) {
-        if (!['schedule', 'result', 'error', 'done'].includes(event.type)) {
+        if (!(event.type in this.config && this.config[event.type as keyof typeof this.config])) {
             return
         }
 
