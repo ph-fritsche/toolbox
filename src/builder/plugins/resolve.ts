@@ -1,4 +1,4 @@
-import { lstat } from 'fs/promises'
+import { stat } from 'fs/promises'
 import path from 'path'
 import { Plugin } from 'rollup'
 import ts, { CompilerOptions } from 'typescript'
@@ -8,7 +8,9 @@ import { isNodeJsBuiltin } from '../module'
 
 function requireResolve(moduleName: string, importer: string) {
     return new Promise<string|undefined>((res, rej) => {
-        requireResolveAsync(moduleName, {}, (err, resolved) => {
+        requireResolveAsync(moduleName, {
+            basedir: importer ? path.dirname(importer) : process.cwd(),
+        }, (err, resolved) => {
             if (err) {
                 rej(err)
             } else {
@@ -63,21 +65,21 @@ async function matchFiles(
         return _matchedFiles[absPath]
     }
 
-    const stats = await lstat(absPath).catch(() => undefined)
+    const stats = await stat(absPath).catch(() => undefined)
     if (stats?.isFile()) {
         _matchedFiles[absPath] = absPath
         return absPath
     }
 
     const lookupBase = [absPath]
-    if (stats?.isDirectory() && !await lstat(path.join(absPath, 'package.json')).catch(() => undefined)) {
+    if (stats?.isDirectory() && !await stat(path.join(absPath, 'package.json')).catch(() => undefined)) {
         lookupBase.push(path.join(absPath, 'index'))
     }
 
     for (const base of lookupBase) {
         for (const ext of ['.ts', '.tsx', '.mjs', '.js']) {
             const lookupFile = `${base}${ext}`
-            const exists = await lstat(lookupFile).then(() => true, () => false)
+            const exists = await stat(lookupFile).then(() => true, () => false)
             if (exists) {
                 _matchedFiles[absPath] = lookupFile
                 return lookupFile
@@ -140,6 +142,10 @@ export function createNodeResolvePlugin(
 
                 if (resolved?.startsWith('file://')) {
                     resolved = resolved.substring(7)
+                    resolved = await stat(resolved).then(
+                        s => s.isFile() ? resolved : undefined,
+                        () => undefined,
+                    )
                 }
             }
 
