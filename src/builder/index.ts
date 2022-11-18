@@ -1,7 +1,7 @@
 import createCjsPlugin from '@rollup/plugin-commonjs'
 import createNodeBuiltinsPlugin from 'rollup-plugin-node-builtins'
 import { parseTsConfig } from './tsconfig'
-import { createTsResolvePlugin, createNodeResolvePlugin } from './plugins/resolve'
+import { createTsResolvePlugin, createNodeResolvePlugin, createNodeCoreResolvePlugin } from './plugins/resolve'
 import { createTransformPlugin } from './plugins/transform'
 import { createIstanbulPlugin } from './plugins/instrument'
 import { createNodeCoreEntryFileNames, createNodeCorePaths, createNodePolyfillPlugin, createNodeReexportPlugin } from './plugins/node'
@@ -30,6 +30,7 @@ export function createSourceBuilder(
         plugins: [
             createTsResolvePlugin(compilerOptions),
             createNodeResolvePlugin(),
+            createNodeCoreResolvePlugin(),
             createJsonPlugin(),
             createTransformPlugin(compilerOptions),
             createIstanbulPlugin(),
@@ -56,6 +57,7 @@ export function createDependencyBuilder(
             }),
             createJsonPlugin(),
             createNodeResolvePlugin(),
+            createNodeCoreResolvePlugin(),
             createUndefinedPlugin(),
         ],
         isExternal: (source, importer, isResolved) => isResolved && isNodeJsBuiltin(source),

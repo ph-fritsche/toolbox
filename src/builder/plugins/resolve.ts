@@ -162,3 +162,17 @@ export function createNodeResolvePlugin(
         },
     }
 }
+
+export function createNodeCoreResolvePlugin(
+    name = 'node-import-resolver-core',
+): Plugin {
+    return {
+        name,
+
+        async resolveId(moduleName) {
+            if (isNodeJsBuiltin(moduleName)) {
+                return moduleName
+            }
+        }
+    }
+}
