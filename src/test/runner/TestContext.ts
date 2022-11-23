@@ -2,10 +2,7 @@ import { Test, TestCallback } from './Test'
 import { AfterCallback, BeforeCallback, TestGroup } from './TestGroup'
 import { vsprintf } from './sprintf'
 
-type TestGroupDeclare<Args = []> = (
-    this: TestGroup,
-    ...args: Args extends unknown[] ? Args : [Args]
-) => void
+type TestGroupDeclare<Args extends unknown[] = []> = (this: TestGroup, ...args: Args) => void
 
 export type TestContext = ReturnType<typeof setTestContext>
 
@@ -26,7 +23,7 @@ export function setTestContext(on: {}, context: TestGroup) {
     }
     describe.each = <Args>(cases: Iterable<Args>) => (
         title: string,
-        declare: TestGroupDeclare<Args>,
+        declare: TestGroupDeclare<Args extends (unknown[] | readonly unknown[]) ? [...Args] : [Args]>,
     ) => {
         for (const args of cases) {
             const argsArray = Array.isArray(args) ? args : [args]
@@ -52,7 +49,7 @@ export function setTestContext(on: {}, context: TestGroup) {
     }
     test.each = <Args>(cases: Iterable<Args>) => (
         title: string,
-        cb: TestCallback<Args extends unknown[] ? Args : [Args]>,
+        cb: TestCallback<Args extends (unknown[] | readonly unknown[]) ? [...Args] : [Args]>,
         timeout?: number,
     ) => {
         for (const args of cases) {
