@@ -87,10 +87,10 @@ export class Builder {
             },
             ...outputOptions,
         }
-        this.isExternal = isExternal ?? ((source, importer, isResolved) => isResolved && (
-            source.includes('/node_modules/')
-            || isNodeJsBuiltin(source)
-        ))
+        this.isExternal = isExternal ?? ((source, importer, isResolved) =>
+            this.outputOptions.globals && source in this.outputOptions.globals
+            || isResolved && (source.includes('/node_modules/') || isNodeJsBuiltin(source))
+        )
     }
     readonly id: string
     protected plugins: Plugin[]

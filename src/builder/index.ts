@@ -1,3 +1,4 @@
+import { OutputOptions } from 'rollup'
 import createCjsPlugin from '@rollup/plugin-commonjs'
 import createNodeBuiltinsPlugin from 'rollup-plugin-node-builtins'
 import { parseTsConfig } from './tsconfig'
@@ -18,8 +19,10 @@ export { BuildProvider } from './BuildProvider'
 export function createSourceBuilder(
     {
         tsConfigFile,
+        globals,
     }: {
         tsConfigFile: string
+        globals?: OutputOptions['globals']
     },
     id = 'project',
 ) {
@@ -36,14 +39,19 @@ export function createSourceBuilder(
             createIstanbulPlugin(),
         ],
         paths: createNodeCorePaths(),
+        outputOptions: {
+            globals,
+        }
     })
 }
 
 export function createDependencyBuilder(
     {
         cache,
+        globals,
     }: {
         cache?: CachePluginOptions
+        globals?: OutputOptions['globals']
     } = {},
     id = 'dependencies',
 ) {
@@ -60,9 +68,12 @@ export function createDependencyBuilder(
             createNodeCoreResolvePlugin(),
             createUndefinedPlugin(),
         ],
-        isExternal: (source, importer, isResolved) => isResolved && isNodeJsBuiltin(source),
+        isExternal: (source, importer, isResolved) =>
+            globals && source in globals
+            || isResolved && isNodeJsBuiltin(source),
         outputOptions: {
             preserveModules: false,
+            globals,
         },
         paths: createNodeCorePaths(),
     })
@@ -126,7 +137,10 @@ export function connectDependencyBuilder(
 
 export function createBundleBuilder(
     {
-    }: {} = {},
+        globals,
+    }: {
+        globals?: OutputOptions['globals']
+    } = {},
     id = 'bundle',
 ) {
     return new Builder({
@@ -141,10 +155,11 @@ export function createBundleBuilder(
             createNodeResolvePlugin(),
             createUndefinedPlugin(),
         ],
-        isExternal: () => false,
+        isExternal: (source) => Boolean(globals && source in globals),
         outputOptions: {
             preserveModules: false,
             format: 'iife',
+            globals,
         },
     })
 }
