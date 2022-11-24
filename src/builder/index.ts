@@ -137,8 +137,10 @@ export function connectDependencyBuilder(
 
 export function createBundleBuilder(
     {
+        basePath,
         globals,
     }: {
+        basePath?: string
         globals?: OutputOptions['globals']
     } = {},
     id = 'bundle',
@@ -155,6 +157,7 @@ export function createBundleBuilder(
             createNodeResolvePlugin(),
             createUndefinedPlugin(),
         ],
+        basePath,
         isExternal: (source) => Boolean(globals && source in globals),
         outputOptions: {
             preserveModules: false,
