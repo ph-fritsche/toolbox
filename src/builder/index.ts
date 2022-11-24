@@ -11,6 +11,7 @@ import { isNodeJsBuiltin } from './module'
 import { createUndefinedPlugin } from './plugins/undefined'
 import { createCachePlugin, CachePluginOptions } from './plugins/cache'
 import { createJsonPlugin } from './plugins/json'
+import { createGlobalsPlugin } from './plugins/globals'
 
 export { Builder } from './Builder'
 export type { OutputFilesMap } from './Builder'
@@ -36,6 +37,7 @@ export function createSourceBuilder(
             createNodeCoreResolvePlugin(),
             createJsonPlugin(),
             createTransformPlugin(compilerOptions),
+            createGlobalsPlugin({globals}),
             createIstanbulPlugin(),
         ],
         paths: createNodeCorePaths(),
@@ -66,6 +68,7 @@ export function createDependencyBuilder(
             createJsonPlugin(),
             createNodeResolvePlugin(),
             createNodeCoreResolvePlugin(),
+            createGlobalsPlugin({globals}),
             createUndefinedPlugin(),
         ],
         isExternal: (source, importer, isResolved) =>
@@ -121,9 +124,9 @@ export function connectDependencyBuilder(
     dependant: Builder,
     dependency: Builder,
 ) {
-    dependant.emitter.addListener('externals', ({externals}) => {
+    dependant.emitter.addListener('externals', ({imports}) => {
         let build = false
-        externals.forEach(f => {
+        imports.forEach(f => {
             if (!dependency.inputFiles.has(f)) {
                 dependency.inputFiles.set(f, undefined)
                 build = true

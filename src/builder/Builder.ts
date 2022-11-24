@@ -24,6 +24,8 @@ export type BuildEventMap = {
     externals: {
         buildId: number
         externals: string[]
+        imports: string[]
+        globals: Record<string, string>
     }
     complete: {
         buildId: number
@@ -221,10 +223,26 @@ export class Builder {
             async b => {
                 if (b) {
                     this.cache = b.cache
+
+                    const externals = this.externals
+                    const imports: string[] = []
+                    const globals: Record<string, string> = {}
+                    for (const id of externals) {
+                        const name = typeof this.outputOptions.globals === 'function'
+                            ? this.outputOptions.globals(id)
+                            : this.outputOptions.globals?.[id]
+                        if (name) {
+                            globals[id] = name
+                        } else {
+                            imports.push(id)
+                        }
+                    }
     
                     this.emitter.dispatch('externals', {
                         buildId,
-                        externals: this.externals,
+                        externals,
+                        imports,
+                        globals,
                     })
     
                     await b.generate(this.outputOptions).then(o => {

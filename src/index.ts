@@ -28,9 +28,10 @@ export function createProjectBuildProvider(
     watchedFiles: string[],
     {
         tsConfigFile,
-        sourceBuilderFactory = () => createSourceBuilder({tsConfigFile}),
+        globals,
+        sourceBuilderFactory = () => createSourceBuilder({tsConfigFile, globals}),
         dependencyBuilderFactory = (source) => {
-            const b = createDependencyBuilder()
+            const b = createDependencyBuilder({globals})
             connectDependencyBuilder(source, b)
             return b
         },
@@ -43,6 +44,7 @@ export function createProjectBuildProvider(
         fileServerFactory = (provider) => new HttpFileServer(provider),
     }: {
         tsConfigFile: string,
+        globals?: Record<string, string>,
         sourceBuilderFactory?: () => Builder,
         dependencyBuilderFactory?: (source: Builder) => Builder,
         nodeCoreBuilderFactory?: (dependencies: Builder, source: Builder) => Builder,
