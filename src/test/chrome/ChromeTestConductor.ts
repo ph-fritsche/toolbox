@@ -42,7 +42,7 @@ export class ChromeTestConductor extends TestConductor {
 import { setTestContext, TestGroup, TestRunner } from "${this.testRunnerModule}"
 
 const fetch = window.fetch.bind(window)
-const setTimeout = window.setTimeout
+const setTimeout = window.setTimeout.bind(window)
 
 await ((async () => {
     const execModule = async (moduleId) => {
