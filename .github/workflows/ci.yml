@@ -1,0 +1,44 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  # check:
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #   - uses: actions/checkout@v2
+  #   - uses: actions/cache@v3
+  #     with:
+  #       path: node_modules
+  #       key: node_modules-${{ runner.os }}-${{ hashFiles('yarn.lock') }}
+  #       restore-keys: |
+  #         node_modules-${{ runner.os }}-
+  #         node_modules-
+  #   - uses: bahmutov/npm-install@v1
+  #   - run: yarn lint
+  #   - run: yarn test
+  #   - uses: codecov/codecov-action@v1
+  #     with:
+  #       file: ./coverage/lcov.info
+
+  release:
+    if: github.event_name == 'push' && contains('refs/heads/main,refs/heads/beta,refs/heads/alpha', github.ref)
+    # needs: check
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - uses: actions/cache@v3
+      with:
+        path: node_modules
+        key: node_modules-${{ runner.os }}-${{ hashFiles('yarn.lock') }}
+        restore-keys: |
+          node_modules-${{ runner.os }}-
+          node_modules-
+    - uses: bahmutov/npm-install@v1
+    - run: yarn build
+    - uses: ph-fritsche/action-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
