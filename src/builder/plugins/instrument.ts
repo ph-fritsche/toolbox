@@ -21,7 +21,7 @@ export function createIstanbulPlugin(): Plugin {
                 sourcesContent,
                 version: String(version),
             })
-            const sourceMap = instrumenter.sourceMap as NonNullable<typeof instrumenter['sourceMap']>
+            const sourceMap = instrumenter.lastSourceMap()
             
             return {
                 code: instrumentedCode,
