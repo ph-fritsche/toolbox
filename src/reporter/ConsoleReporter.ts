@@ -19,16 +19,25 @@ const isEventType = makeEventTypeCheck<TestConductorEventMap>()
 const events: Array<keyof TestConductorEventMap> = ['complete','done','error','result','schedule','start']
 
 export class ConsoleReporter {
+    protected unsubscribe = new Map<TestConductor, Set<() => void>>()
+
     public connect(
         conductor: TestConductor,
     ) {
-        events.forEach(k => conductor.emitter.addListener(k, e => this.log(conductor, e)))
+        if (!this.unsubscribe.has(conductor)) {
+            const set = new Set<() => void>()
+            this.unsubscribe.set(conductor, set)
+            for (const k of events) {
+                set.add(conductor.emitter.addListener(k, e => this.log(conductor, e)))
+            }
+        }
     }
 
     public disconnect(
         conductor: TestConductor,
     ) {
-        events.forEach(k => conductor.emitter.removeListener(k, e => this.log(conductor, e)))
+        this.unsubscribe.get(conductor)?.forEach(u => u())
+        this.unsubscribe.delete(conductor)
     }
 
     public readonly config = {
