@@ -13,6 +13,8 @@ export class EventEmitter<EventMap extends {}> {
     addListener<K extends keyof EventMap>(type: K, handler: EventHandler<EventMap, K>) {
         this.listeners[type] ??= new Set<EventHandler<EventMap, K>>()
         this.listeners[type]?.add(handler)
+
+        return () => this.removeListener(type, handler)
     }
 
     removeListener<K extends keyof EventMap>(type: K, handler: EventHandler<EventMap, K>) {
@@ -25,6 +27,8 @@ export class EventEmitter<EventMap extends {}> {
             handler(e)
         }
         this.addListener(type, h)
+
+        return () => this.removeListener(type, h)
     }
 }
 
