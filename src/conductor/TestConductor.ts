@@ -48,6 +48,7 @@ export type TestConductorEventMap = {
 export abstract class TestConductor extends Entity {
     protected abstract readonly supportedFilesProtocols: string[]
     protected readonly includeFilesProtocol: boolean = false
+    public title: string = this.constructor.name
 
     constructor() {
         super()
