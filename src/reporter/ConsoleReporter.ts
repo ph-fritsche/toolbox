@@ -1,10 +1,9 @@
-import { makeEventTypeCheck } from '../../event'
-import { Test } from '../Test'
-import { TestConductor, TestConductorEventMap } from '../TestConductor'
-import { TestError } from '../TestError'
-import { TestGroup } from '../TestGroup'
-import { TestResult } from '../TestResult'
-import { TestRun } from '../TestRun'
+import { makeEventTypeCheck } from '../event'
+import { Test } from '../test/Test'
+import { TestConductor, TestConductorEventMap } from '../conductor/TestConductor'
+import { TestGroup } from '../test/TestGroup'
+import { TestResult } from '../test/TestResult'
+import { TestRun } from '../test/TestRun'
 
 const icon = {
     timeout: '⌛',

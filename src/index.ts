@@ -2,7 +2,7 @@ import path from 'path'
 import { Builder, BuildProvider, connectDependencyBuilder, createDependencyBuilder, createNodePolyfillBuilder, createSourceBuilder } from './builder'
 import { FileProvider, FileServer, FsFileProvider, HttpFileServer } from './server'
 
-export type { TestContext } from './test/runner/TestContext'
+export type { TestContext } from './runner/TestContext'
 
 export async function serveDir(dir: string) {
     const provider = new FsFileProvider(dir)

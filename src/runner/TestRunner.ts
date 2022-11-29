@@ -1,5 +1,5 @@
-import { TestConductorEventMap } from '../TestConductor'
-import { TestsIteratorGroupNode, TestsIteratorNode } from '../TestGroup'
+import { TestConductorEventMap } from '../conductor/TestConductor'
+import { TestsIteratorGroupNode, TestsIteratorNode } from '../test/TestGroup'
 import { Test } from './Test'
 import { TestError } from './TestError'
 import { BeforeCallbackReturn, TestGroup } from './TestGroup'

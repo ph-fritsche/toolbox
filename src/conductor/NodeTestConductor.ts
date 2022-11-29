@@ -1,9 +1,9 @@
 import { spawn } from 'child_process'
-import { TestConductor } from '../TestConductor'
+import { TestConductor } from './TestConductor'
 
 const selfUrl = import.meta.url
-const loaderUrl = new URL('./loader.js', selfUrl)
-const prepareUrl = new URL('./prepare.cjs', selfUrl)
+const loaderUrl = new URL('./node/loader.js', selfUrl)
+const prepareUrl = new URL('./node/prepare.cjs', selfUrl)
 const nodeFetchUrl = await import.meta.resolve('node-fetch', selfUrl)
 
 export class NodeTestConductor extends TestConductor {

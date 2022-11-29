@@ -1,4 +1,4 @@
-import { Test as BaseTest } from '../Test'
+import { Test as BaseTest } from '../test/Test'
 import type { TestGroup } from './TestGroup'
 
 export type TestCallback<Args extends unknown[] = []> = (this: Test, ...args: Args) => void | Promise<void>

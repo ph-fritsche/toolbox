@@ -2,12 +2,12 @@ import { createServer, IncomingMessage, ServerResponse } from 'http'
 import { SourceMapConsumer } from 'source-map'
 import { EventEmitter } from '../event'
 import { FileServer } from '../server'
-import { Entity, makeId } from './Entity'
-import { Test } from './Test'
-import { TestError } from './TestError'
-import { TestGroup } from './TestGroup'
-import { TestResult } from './TestResult'
-import { TestRun } from './TestRun'
+import { Entity, makeId } from '../test/Entity'
+import { Test } from '../test/Test'
+import { TestError } from '../test/TestError'
+import { TestGroup } from '../test/TestGroup'
+import { TestResult } from '../test/TestResult'
+import { TestRun } from '../test/TestRun'
 
 export interface ServedFiles {
     server: URL

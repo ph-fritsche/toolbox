@@ -30,7 +30,7 @@
         "typescript": "^4.8.2"
     },
     "scripts": {
-        "build": "scripts ts-build2 && cp src/test/node/prepare.cjs dist/test/node/prepare.cjs"
+        "build": "scripts ts-build2 && cp src/conductor/node/prepare.cjs dist/conductor/node/prepare.cjs"
     },
     "main": "./dist/index.js",
     "module": "./dist/index.js",

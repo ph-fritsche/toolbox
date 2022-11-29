@@ -1,6 +1,6 @@
-import { Test } from '../Test'
+import { Test } from '../test/Test'
 import { TestGroup } from './TestGroup'
-import { TestError as BaseTestError } from '../TestError'
+import { TestError as BaseTestError } from '../test/TestError'
 
 export class TestError extends BaseTestError {
     constructor(

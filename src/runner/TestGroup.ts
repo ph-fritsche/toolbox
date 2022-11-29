@@ -1,4 +1,4 @@
-import { TestGroup as BaseTestGroup } from '../TestGroup'
+import { TestGroup as BaseTestGroup } from '../test/TestGroup'
 import { Test } from './Test'
 import { TestError } from './TestError'
 

@@ -1,6 +1,6 @@
 import puppeteer from 'puppeteer-core'
-import { makeId } from '../Entity'
-import { TestConductor } from '../TestConductor'
+import { makeId } from '../test/Entity'
+import { TestConductor } from './TestConductor'
 
 export class ChromeTestConductor extends TestConductor {
     protected supportedFilesProtocols: string[] = ['http:']
