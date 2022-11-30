@@ -4,6 +4,7 @@ import { TestConductor, TestConductorEventMap } from '../conductor/TestConductor
 import { TestGroup } from '../test/TestGroup'
 import { TestResult } from '../test/TestResult'
 import { TestRun } from '../test/TestRun'
+import { ConsoleSummary } from './ConsoleSummary'
 
 const icon = {
     timeout: '⌛',
@@ -30,6 +31,10 @@ export class ConsoleReporter {
             for (const k of events) {
                 set.add(conductor.emitter.addListener(k, e => this.log(conductor, e)))
             }
+            set.add(conductor.emitter.addListener('start', e => this.summary.makeStack(conductor, e.run, e.testFiles.map(f => f.name))))
+            set.add(conductor.emitter.addListener('done', e => {
+                process.stdout.write(`\n${this.summary.getSummary(e.run)}\n`)
+            }))
         }
     }
 
@@ -45,8 +50,10 @@ export class ConsoleReporter {
         result: true,
         error: true,
         done: true,
+        summary: true,
     }
 
+    protected summary = new ConsoleSummary()
     protected lastLog = ''
 
     protected log<

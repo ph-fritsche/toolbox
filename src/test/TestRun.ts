@@ -5,6 +5,7 @@ import { TestGroup } from './TestGroup'
 import { TestResult } from './TestResult'
 
 export class TestRun extends Entity {
+    state: 'pending' | 'running' | 'done' = 'pending'
     suites = new Map<string, TestGroup>()
     groups = new Map<string, TestGroup>()
     tests = new Map<string, Test>()

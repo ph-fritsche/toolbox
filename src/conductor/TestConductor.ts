@@ -107,7 +107,9 @@ export abstract class TestConductor extends Entity {
                                 group: report.group,
                             })
                         } else if ('result' in report) {
-                            report.result.error.stack = await this.rewriteStack(report.result.error.stack)
+                            if (report.result.error) {
+                                report.result.error.stack = await this.rewriteStack(report.result.error.stack)
+                            }
                             run.results.set(report.testId, report.result)
                             this.emitter.dispatch('result', {
                                 run,
@@ -175,6 +177,7 @@ export abstract class TestConductor extends Entity {
         const run = new TestRun({id: runId})
         this.testRuns.set(runId, run)
 
+        run.state = 'running'
         this.emitter.dispatch('start', {run, setupFiles: this.setupFiles, testFiles})
 
         testFiles.forEach(f => {
@@ -205,6 +208,7 @@ export abstract class TestConductor extends Entity {
             )
         ))
 
+        run.state = 'done'
         this.emitter.dispatch('done', {run})
     }
 
