@@ -1,4 +1,4 @@
-import { TestConductorEventMap } from '../conductor/TestConductor'
+import { TestRunnerReportMap } from '../conductor/TestConductor'
 import { TestsIteratorGroupNode, TestsIteratorNode } from '../test/TestGroup'
 import { Test } from './Test'
 import { TestError } from './TestError'
@@ -97,7 +97,7 @@ export class TestRunner {
         }
     }
 
-    protected async report<K extends 'schedule' | 'result' | 'error'>(type: K, data: TestConductorEventMap[K]) {
+    protected async report<K extends keyof TestRunnerReportMap>(type: K, data: TestRunnerReportMap[K]) {
         return this.fetch(this.reporterUrl, {
             method: 'POST',
             headers: {

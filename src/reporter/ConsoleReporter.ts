@@ -59,20 +59,20 @@ export class ConsoleReporter {
             return
         }
 
-        if (this.lastLog !== `${event.runId}:${event.type}`) {
+        if (this.lastLog !== `${event.run.id}:${event.type}`) {
             process.stdout.write('\n')
-            this.lastLog = `${event.runId}:${event.type}`
+            this.lastLog = `${event.run.id}:${event.type}`
         }
 
         if (isEventType(event, 'schedule')) {
-            process.stdout.write(`Suite "${event.group.title}" for run ${event.runId}:\n`)
+            process.stdout.write(`Suite "${event.group.title}" for run ${event.run.id}:\n`)
             process.stdout.write(this.printTree(event.group.children))
         } else if (isEventType(event, 'result')) {
-            const test = conductor.testRuns.get(event.runId).tests.get(event.testId)
+            const test = event.run.tests.get(event.testId)
             const result = event.result
             process.stdout.write(this.printResult(test, result))
         } else if (isEventType(event, 'error')) {
-            const group = conductor.testRuns.get(event.runId).groups.get(event.groupId)
+            const group = conductor.testRuns.get(event.run.id).groups.get(event.groupId)
             process.stdout.write(`${icon.error} ${group.getHierarchy().map(t => t.title).join(' › ') }\n`)
             process.stdout.write(event.hook
                 ? `Test hook ${ event.hook } failed.\n`
@@ -81,19 +81,18 @@ export class ConsoleReporter {
             process.stdout.write((event.error.stack ?? `${event.error.name}: ${event.error.message}`).trim() + '\n')
             process.stdout.write('\n')
         } else if (isEventType(event, 'done')) {
-            process.stdout.write(`Results for run ${event.runId}:\n`)
-            const run = conductor.testRuns.get(event.runId)
+            process.stdout.write(`Results for run ${event.run.id}:\n`)
             process.stdout.write(this.printTree(
-                Array.from(conductor.testRuns.get(event.runId).suites.values()),
-                run,
+                Array.from(conductor.testRuns.get(event.run.id).suites.values()),
+                event.run,
             ))
             const count = { success: 0, fail: 0, timeout: 0, skipped: 0 }
-            run.results.forEach(result => {
+            event.run.results.forEach(result => {
                 count[result.status]++
             })
-            process.stdout.write(`${run.results.size} tests were run: ${count.success} succeeded, ${count.fail} failed, ${count.timeout} timed out, ${count.skipped} were skipped\n`)
-            if (run.errors.size) {
-                const n = Array.from(run.errors.values()).reduce((n, e) => n + e.length, 0)
+            process.stdout.write(`${event.run.results.size} tests were run: ${count.success} succeeded, ${count.fail} failed, ${count.timeout} timed out, ${count.skipped} were skipped\n`)
+            if (event.run.errors.size) {
+                const n = Array.from(event.run.errors.values()).reduce((n, e) => n + e.length, 0)
                 process.stdout.write(`There were ${n} errors in test code.\n`)
             }
             process.stdout.write('\n')

@@ -16,10 +16,36 @@ export interface ServedFiles {
 
 export type TestConductorEventMap = {
     start: {
-        runId: string
+        run: TestRun
         setupFiles: string[]
         testFiles: Array<{name: string, url: string}>
     }
+    schedule: {
+        run: TestRun
+        group: TestGroup
+    }
+    result: {
+        run: TestRun
+        testId: string
+        result: TestResult
+    }
+    complete: {
+        run: TestRun
+        groupTitle: string
+    }
+    error: {
+        run: TestRun
+        groupId: string
+        testId?: string
+        hook?: string
+        error: TestError
+    }
+    done: {
+        run: TestRun
+    }
+}
+
+export type TestRunnerReportMap = {
     schedule: {
         runId: string
         group: TestGroup
@@ -29,19 +55,12 @@ export type TestConductorEventMap = {
         testId: string
         result: TestResult
     }
-    complete: {
-        runId: string
-        groupTitle: string
-    }
     error: {
         runId: string
         groupId: string
         testId?: string
         hook?: string
         error: TestError
-    }
-    done: {
-        runId: string
     }
 }
 
@@ -53,29 +72,6 @@ export abstract class TestConductor extends Entity {
     constructor() {
         super()
         this.reporterServer.listen(0, '127.0.0.1')
-
-        this.emitter.addListener('schedule', ({runId, group}) => {
-            const run = this.testRuns.get(runId)
-            run.suites.set(group.id, group)
-            for (const t of group.getDescendents()) {
-                if (isGroup(t)) {
-                    run.groups.set(t.id, t)
-                } else {
-                    run.tests.set(t.id, t)
-                }
-            }
-        })
-        this.emitter.addListener('result', ({runId, testId, result}) => {
-            const run = this.testRuns.get(runId)
-            run.results.set(testId, result)
-        })
-        this.emitter.addListener('error', ({runId, groupId, testId, hook, error}) => {
-            const run = this.testRuns.get(runId)
-            if (!run.errors.has(groupId)) {
-                run.errors.set(groupId, [])
-            }
-            run.errors.get(groupId).push({hook, testId, error})
-        })
     }
 
     private runId = -1
@@ -88,26 +84,62 @@ export abstract class TestConductor extends Entity {
             res.setHeader('access-control-allow-headers', '*')
             res.end();
         } else if (req.method === 'POST' && req.headers["content-type"] === 'application/json') {
-            const [type, data] = await new Promise<[K, TestConductorEventMap[K]]>((resolve, reject) => {
+            await new Promise<void>((resolve, reject) => {
                 let c = ''
                 req.on('data', b => {
                     c += String(b)
                 })
                 req.on('end', async () => {
                     try {
-                        const {type, ...data} = JSON.parse(c, reviveReportProps)
-                        if (type === 'result' && data.result.error?.stack) {
-                            data.result.error.stack = await this.rewriteStack(data.result.error.stack)
+                        const report = JSON.parse(c, reviveReportProps) as TestRunnerReportMap[keyof TestRunnerReportMap]
+                        const run = this.testRuns.get(report.runId)
+                        if ('group' in report) {
+                            run.suites.set(report.group.id, report.group)
+                            for (const t of report.group.getDescendents()) {
+                                if (isGroup(t)) {
+                                    run.groups.set(t.id, t)
+                                } else {
+                                    run.tests.set(t.id, t)
+                                }
+                            }
+                            this.emitter.dispatch('schedule', {
+                                run,
+                                group: report.group,
+                            })
+                        } else if ('result' in report) {
+                            report.result.error.stack = await this.rewriteStack(report.result.error.stack)
+                            run.results.set(report.testId, report.result)
+                            this.emitter.dispatch('result', {
+                                run,
+                                testId: report.testId,
+                                result: report.result,
+                            })
+                        } else if ('error' in report) {
+                            report.error.stack = await this.rewriteStack(report.error.stack)
+                            if (!run.errors.has(report.groupId)) {
+                                run.errors.set(report.groupId, [])
+                            }
+                            run.errors.get(report.groupId).push({
+                                hook: report.hook,
+                                testId: report.testId,
+                                error: report.error,
+                            })
+                            this.emitter.dispatch('error', {
+                                run,
+                                groupId: report.groupId,
+                                testId: report.testId,
+                                hook: report.hook,
+                                error: report.error,
+                            })
                         }
-                        resolve([type, data])
                     } catch(e) {
                         reject(e)
                     }
+                    resolve()
                 })
                 req.on('error', e => reject(e))
             })
             res.end()
-            this.emitter.dispatch(type, data)
         } else {
             res.writeHead(501, 'Unsupported request type')
             res.end()
@@ -143,7 +175,7 @@ export abstract class TestConductor extends Entity {
         const run = new TestRun({id: runId})
         this.testRuns.set(runId, run)
 
-        this.emitter.dispatch('start', {runId, setupFiles: this.setupFiles, testFiles})
+        this.emitter.dispatch('start', {run, setupFiles: this.setupFiles, testFiles})
 
         testFiles.forEach(f => {
             const t = new TestGroup({
@@ -158,11 +190,11 @@ export abstract class TestConductor extends Entity {
         await Promise.all(testFiles.map(f => this.runTestSuite(runId, f.url, f.id, f.name)
             .then(
                 () => this.emitter.dispatch('complete', {
-                    runId,
+                    run,
                     groupTitle: f.name
                 }),
                 async e => this.emitter.dispatch('error', {
-                    runId,
+                    run,
                     groupId: f.id,
                     error: new TestError({
                         name: e instanceof Error ? e.name : 'Error',
@@ -173,7 +205,7 @@ export abstract class TestConductor extends Entity {
             )
         ))
 
-        this.emitter.dispatch('done', {runId})
+        this.emitter.dispatch('done', {run})
     }
 
     protected abstract runTestSuite(
