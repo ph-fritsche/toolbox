@@ -1,9 +1,12 @@
-import { TestRunnerReportMap } from '../conductor/TestConductor'
-import { TestsIteratorGroupNode, TestsIteratorNode } from '../test/TestGroup'
+import { ReporterMessageMap } from '../reporter/ReporterMessage'
+import { FilterIterator } from '../test/FilterIterator'
+import { TreeIterator } from '../test/TreeIterator'
 import { Test } from './Test'
 import { TestError } from './TestError'
 import { BeforeCallbackReturn, TestGroup } from './TestGroup'
 import { TestResult, TimeoutError } from './TestResult'
+
+type RunnerMessageMap = ReporterMessageMap<TestGroup, TestResult, TestError>
 
 type fetchApi = typeof globalThis.fetch
 
@@ -21,9 +24,7 @@ export class TestRunner {
     ) {
         await this.report('schedule', {runId, group})
 
-        const tests = group.getTestsIteratorIterator(filter)
-
-        for await (const result of this.execTestsIterator(runId, tests, [])) {
+        for await (const result of this.execTestsIterator(runId, new FilterIterator(group, filter))) {
             await this.report('result', {
                 runId,
                 testId: result.test.id,
@@ -34,41 +35,40 @@ export class TestRunner {
 
     protected async *execTestsIterator(
         runId: string,
-        node: TestsIteratorGroupNode<TestGroup>,
-        parents: TestGroup[] = [],
+        iterator: FilterIterator<TestGroup|Test>,
     ): AsyncGenerator<TestResult> {
-        let beforeAllResult: Awaited<ReturnType<TestGroup['runBefore']>>|undefined
-        if (node.include) {
-            beforeAllResult = await node.element.runBeforeAll()
-            this.reportErrors(runId, beforeAllResult.errors)
-        }
-        const tree = [...parents, node.element]
-        for (const child of node) {
-            if (isGroup(child)) {
-                yield* this.execTestsIterator(runId, child, tree)
-            } else {
-                if (child.include) {
-                    const afterEach = new Map<TestGroup, BeforeCallbackReturn[]>()
-                    for (const p of tree) {
-                        const beforeEachResult = await p.runBeforeEach(child.element)
-                        this.reportErrors(runId, beforeEachResult.errors)
-                        afterEach.set(p, beforeEachResult.after)
-                    }
-
-                    yield await this.execTest(child.element)
-
-                    for (const p of tree.reverse()) {
-                        const afterEachResult = await p.runAfterEach(child.element, afterEach.get(p)!)
-                        this.reportErrors(runId, afterEachResult.errors)
-                    }
-                } else {
-                    yield new TestResult(child.element)
-                }
+        if ('children' in iterator.element) {
+            let beforeAllResult: Awaited<ReturnType<TestGroup['runBefore']>>|undefined
+            if (iterator.include) {
+                beforeAllResult = await iterator.element.runBeforeAll()
+                this.reportErrors(runId, beforeAllResult.errors)
             }
-        }
-        if (node.include) {
-            const afterAllResult = await node.element.runAfterAll(beforeAllResult.after)
-            this.reportErrors(runId, afterAllResult.errors)
+
+            for (const i of iterator) {
+                yield* this.execTestsIterator(runId, i)
+            }
+
+            if (iterator.include) {
+                const afterAllResult = await iterator.element.runAfterAll(beforeAllResult.after)
+                this.reportErrors(runId, afterAllResult.errors)
+            }
+        } else if (iterator.include) {
+            const ancestors = Array.from(new TreeIterator(iterator.element).getAncestors())
+            const afterEach = new Map<TestGroup, BeforeCallbackReturn[]>()
+            for (const p of ancestors.reverse()) {
+                const beforeEachResult = await p.runBeforeEach(iterator.element)
+                this.reportErrors(runId, beforeEachResult.errors)
+                afterEach.set(p, beforeEachResult.after)
+            }
+
+            yield await this.execTest(iterator.element)
+
+            for (const p of ancestors) {
+                const afterEachResult = await p.runAfterEach(iterator.element, afterEach.get(p)!)
+                this.reportErrors(runId, afterEachResult.errors)
+            }
+        } else {
+            yield new TestResult(iterator.element)
         }
     }
 
@@ -97,7 +97,7 @@ export class TestRunner {
         }
     }
 
-    protected async report<K extends keyof TestRunnerReportMap>(type: K, data: TestRunnerReportMap[K]) {
+    protected async report<K extends keyof RunnerMessageMap>(type: K, data: RunnerMessageMap[K]) {
         return this.fetch(this.reporterUrl, {
             method: 'POST',
             headers: {
@@ -121,10 +121,4 @@ export class TestRunner {
             })
         })
     }
-}
-
-function isGroup(
-    node: TestsIteratorNode<TestGroup>
-): node is TestsIteratorGroupNode<TestGroup> {
-    return Symbol.iterator in node
 }

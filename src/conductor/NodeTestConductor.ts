@@ -1,4 +1,5 @@
 import { spawn } from 'child_process'
+import { ReporterServer } from '../reporter/ReporterServer'
 import { TestConductor } from './TestConductor'
 
 const selfUrl = import.meta.url
@@ -11,9 +12,10 @@ export class NodeTestConductor extends TestConductor {
     protected includeFilesProtocol: boolean = false
 
     constructor(
+        readonly reporterServer: ReporterServer,
         readonly testRunnerModule: string,
     ) {
-        super()
+        super(reporterServer)
     }
 
     protected async runTestSuite(
@@ -89,7 +91,7 @@ const setTimeout = global.setTimeout
 
     await execModule(${JSON.stringify(testFile)})
 
-    const runner = new TestRunner(${JSON.stringify(this.reporterServerUrl)}, fetch, setTimeout)
+    const runner = new TestRunner(${JSON.stringify(this.reporterServer.url)}, fetch, setTimeout)
     await runner.run(${JSON.stringify(runId)}, suite)
 
     exit()
