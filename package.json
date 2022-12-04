@@ -32,6 +32,9 @@
     "scripts": {
         "build": "scripts ts-build2 && cp src/conductor/node/prepare.cjs dist/conductor/node/prepare.cjs"
     },
+    "files": [
+        "dist"
+    ],
     "main": "./dist/index.js",
     "module": "./dist/index.js",
     "types": "./dist/index.d.ts"
