@@ -17,10 +17,8 @@ export class TestRun extends Entity {
     suites = new Map<string, TestGroup>()
     groups = new Map<string, TestGroup>()
     tests = new Map<string, Test>()
+    /** Map testId->TestResult */
     results = new Map<string, TestResult>
-    errors = new Map<string, Array<{
-        hook?: string,
-        testId?: string,
-        error: TestError
-    }>>
+    /** Map groupId->TestError */
+    errors = new Map<string, TestError[]>
 }

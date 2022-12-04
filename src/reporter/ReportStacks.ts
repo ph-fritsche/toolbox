@@ -1,8 +1,10 @@
 import { createHash } from 'crypto'
 import { TestConductor } from '../conductor/TestConductor'
-import { Test } from '../test/Test'
-import { TestGroup } from '../test/TestGroup'
+import { Test } from './Test'
+import { TestGroup } from './TestGroup'
 import { TestRun } from '../conductor/TestRun'
+import { TestError } from './TestError'
+import { TestResult } from './TestResult'
 
 export class ReportStacks {
     protected readonly runHash = new Map<TestRun, string>()
@@ -41,16 +43,16 @@ export class ReportStacks {
     aggregateResults(
         stack: Map<TestConductor, TestRun>,
     ) {
-        const main = new TestNodeStack(new TestGroup({title: '#main'}))
+        const main = new TestNodeStack([undefined, new TestGroup({title: '#main'})])
         const nodemap = new Map<TestGroup|Test, TestNodeStack>()
 
         for (const [conductor, run] of stack) {
             for (const suite of run.groups.values()) {
                 for (const {parent, node} of this.traverseNodes(suite)) {
                     if (!nodemap.has(parent)) {
-                        nodemap.set(parent, main.addChild(parent))
+                        nodemap.set(parent, main.addChild(run, parent))
                     }
-                    nodemap.set(node, nodemap.get(parent).addChild(node))
+                    nodemap.set(node, nodemap.get(parent).addChild(run, node))
                 }
             }
         }
@@ -79,30 +81,24 @@ function sortTestNode<T extends TestGroup|Test|TestNodeStack>(
 
 export class TestNodeStack<T extends TestGroup|Test = TestGroup|Test> {
     constructor(
-        ...items: [T, ...T[]]
+        ...items: [[TestRun|undefined, T], ...[TestRun, T][]]
     ) {
-        this.stack = new Set(items)
-        this.type = 'children' in items[0] ? 'group' : 'test'
-        this.title = items[0].title
+        this.instances = new Map(items)
+        this.type = 'children' in items[0][1] ? 'group' : 'test'
+        this.title = items[0][1].title
     }
 
     readonly title: string
+    readonly instances = new Map<TestRun|undefined, T>()
     protected type: 'group'|'test'
-    protected stack = new Set<T>()
     protected _children = new Set<TestNodeStack<TestGroup|Test>>()
-
-    addInstance(
-        node: T
-    ) {
-        this.stack.add(node)
-    }
-
-    getInstances() {
-        return Array.from(this.stack)
-    }
 
     isGroup(): this is TestNodeStack<TestGroup> {
         return this.type === 'group'
+    }
+
+    isTest(): this is TestNodeStack<Test> {
+        return this.type === 'test'
     }
 
     get children() {
@@ -113,17 +109,47 @@ export class TestNodeStack<T extends TestGroup|Test = TestGroup|Test> {
     }
 
     addChild<C extends (T extends TestGroup ? TestGroup|Test : never)>(
+        run: TestRun,
         child: C,
     ): TestNodeStack<C> {
         const children = Array.from(this._children)
-        const i = children.findIndex(el => el instanceof child.constructor && el.title === child.title)
+        const i = children.findIndex(el => el.type === ('children' in child ? 'group' : 'test') && el.title === child.title)
         if (i < 0) {
-            const s = new TestNodeStack(child)
+            const s = new TestNodeStack([run, child])
             this._children.add(s)
             return s
         } else {
-            children[i].addChild(child)
+            children[i].instances.set(run, child)
             return children[i] as TestNodeStack<C>
         }
+    }
+
+    getErrors() {
+        const errorMap = new Map<string, [TestRun, TestError][]>()
+        this.instances.forEach((instance, run) => {
+            if (run.errors.has(instance.id)) {
+                run.errors.get(instance.id).forEach(error => {
+                    if (!errorMap.has(error.message)) {
+                        errorMap.set(error.message, [])
+                    }
+                    errorMap.get(error.message).push([run, error])
+                })
+            }
+        })
+        return errorMap
+    }
+
+    getResults() {
+        const resultMap = new Map<TestResult['status'], [TestRun, TestResult][]>()
+        this.instances.forEach((instance, run) => {
+            if (run.results.has(instance.id)) {
+                const result = run.results.get(instance.id)
+                if (!resultMap.has(result.status)) {
+                    resultMap.set(result.status, [])
+                }
+                resultMap.get(result.status).push([run, result])
+            }
+        })
+        return resultMap
     }
 }

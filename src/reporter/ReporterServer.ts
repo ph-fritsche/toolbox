@@ -33,8 +33,6 @@ export type ReporterEventMap = {
     error: {
         run: TestRun
         group: TestGroup
-        test?: Test
-        hook?: string
         error: TestError
     }
     done: {
@@ -95,16 +93,13 @@ export class ReporterServer {
                             if (!run.errors.has(report.groupId)) {
                                 run.errors.set(report.groupId, [])
                             }
-                            run.errors.get(report.groupId).push({
-                                hook: report.hook,
-                                testId: report.testId,
-                                error: report.error,
-                            })
+                            report.error.group = run.groups.get(report.groupId)
+                            report.error.hook = report.hook
+                            report.error.test = report.testId ? run.tests.get(report.testId) : undefined
+                            run.errors.get(report.groupId).push(report.error)
                             this.emitter.dispatch('error', {
                                 run,
                                 group: run.groups.get(report.groupId),
-                                test: report.testId ? run.tests.get(report.testId) : undefined,
-                                hook: report.hook,
                                 error: report.error,
                             })
                         }
@@ -230,6 +225,8 @@ function reviveReportProps(key: string, value: unknown) {
     if (typeof value === 'object') {
         if (key === 'result') {
             return new TestResult(value as BaseEntities.TestResult)
+        } else if (key === 'error') {
+            return new TestError(value as BaseEntities.TestError)
         } else if (key === 'group') {
             return new TestGroup(value as BaseEntities.TestGroup)
         } else if (String(Number(key)) === key) {

@@ -21,6 +21,7 @@ const summaryIcon = {
     pending: '·',
     error: '🚨',
     fail: '⨯',
+    divided: '⚠',
     success: '✓',
 }
 
@@ -41,7 +42,14 @@ export class ConsoleReporter {
             }
             set.add(server.emitter.addListener('start', e => this.stacks.makeStack(e.run, e.testFiles.map(f => f.name))))
             set.add(server.emitter.addListener('done', e => {
-                process.stdout.write(`\n${this.printSummary(this.stacks.getStack(e.run))}\n`)
+                const stack = this.stacks.getStack(e.run)
+                process.stdout.write([
+                    '',
+                    `Results from ${stack.size} conductors:`,
+                    `${this.printTreeSummary(this.stacks.aggregateResults(stack))}`,
+                    this.printConductorSummary(stack),
+                    ''
+                ].join('\n'))
             }))
         }
     }
@@ -57,7 +65,7 @@ export class ConsoleReporter {
         schedule: false,
         result: true,
         error: true,
-        done: true,
+        done: false,
         summary: true,
     }
 
@@ -88,8 +96,8 @@ export class ConsoleReporter {
         } else if (isEventType(event, 'error')) {
             const path = Array.from(new TreeIterator(event.group).getAncestors()).reverse()
             process.stdout.write(`${resultIcon.error} ${path.map(t => t.title).join(' › ') }\n`)
-            process.stdout.write(event.hook
-                ? `Test hook ${ event.hook } failed.\n`
+            process.stdout.write(event.error.hook
+                ? `Test hook ${ event.error.hook } failed.\n`
                 : `Test suite failed.\n`
             )
             process.stdout.write((event.error.stack ?? `${event.error.name}: ${event.error.message}`).trim() + '\n')
@@ -174,10 +182,10 @@ export class ConsoleReporter {
         return t
     }
 
-    protected printSummary(
+    protected printConductorSummary(
         stack: Map<TestConductor, TestRun>
     ) {
-        let t = `Results from ${stack.size} conductors:\n`
+        let t = ''
         for (const [conductor, run] of stack.entries()) {
             const count = { success: 0, fail: 0, timeout: 0, skipped: 0 }
             run.results.forEach(result => {
@@ -200,6 +208,73 @@ export class ConsoleReporter {
         }
         return t
     }
+
+    protected printTreeSummary(
+        children: Array<TestNodeStack>,
+        indent = ''
+    ) {
+        let t = ''
+        for (let i = 0; i < children.length; i++) {
+            const isLast = i === children.length - 1
+            const child = children[i]
+            if (child.isGroup()) {
+                t += indent + (isLast ? '└' : '├') + child.title
+                const errors = child.getErrors()
+                if (errors.size) {
+                    const count = Array.from(errors.values()).reduce((n, s) => n + s.length, 0)
+                    t += ` ${resultIcon.error} ${errors.size} errors in ${count} places`
+                }
+                t += '\n'
+                t += this.printTreeSummary(
+                    child.children,
+                    indent + (isLast ? ' ' : '╎'),
+                )
+            } else if (child.isTest()) {
+                t += this.printSummaryResult(
+                    child,
+                    { indent, isLast },
+                )
+            }
+        }
+        return t
+    }
+
+    protected printSummaryResult(
+        test: TestNodeStack<Test>,
+        tree: {
+            indent: string
+            isLast: boolean
+        }
+    ) {
+        const results = test.getResults()
+        const divided = results.size > 1
+        const pending = Array.from(results.values()).reduce((n, s) => n + s.length, 0) < test.instances.size
+        const status = divided ? 'divided' : pending ? 'pending' : Array.from(results.keys())[0] === 'success' ? 'success' : 'fail'
+        let t = ''
+        if (results.has('fail') || results.has('timeout')) {
+            t += tree.indent + '╎' + '\n'
+        }
+        t += tree.indent + (tree.isLast ? '└' : '├') + `[${summaryIcon[status]}]` + test.title + '\n'
+        const pre = tree.indent + (tree.isLast ? ' ' : '╎')
+        if (results.has('fail') || results.has('timeout')) {
+            for(const k of ['success', 'skipped', 'fail', 'timeout'] as const) {
+                if (results.has(k)) {
+                    results.get(k).forEach(([run, result]) => {
+                        t += pre + ` [${resultIcon[k]}] ${run.conductor.title}\n`
+                        if (result.error) {
+                            t += result.error.stack.trim() || `${result.error.name}: ${result.error.message.trim()}`
+                            t += '\n'
+                        }
+                    })
+                }
+            }
+        }
+        if (results.has('fail') || results.has('timeout')) {
+            t += pre + '\n'
+        }
+        return t
+    }
+
 }
 
 function isGroup(
