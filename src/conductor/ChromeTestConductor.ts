@@ -23,6 +23,7 @@ export class ChromeTestConductor extends TestConductor {
         name: string,
     ) {
         const page = await (await this.browser).newPage()
+        page.setDefaultNavigationTimeout(600000)
 
         const callbackId = makeId(6)
 
