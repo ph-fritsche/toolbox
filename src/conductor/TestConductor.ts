@@ -9,17 +9,26 @@ export interface ServedFiles {
 }
 
 export abstract class TestConductor extends Entity {
-    protected abstract readonly supportedFilesProtocols: string[]
-    protected readonly includeFilesProtocol: boolean = false
-    public title: string = this.constructor.name
-
+    protected static readonly supportedFilesProtocols: string[] = []
+    protected static readonly includeFilesProtocol: boolean = false
+    
     constructor(
-        protected reporterServer: ReporterServer,
+        public readonly reporterServer: ReporterServer,
+        public readonly testRunnerModule: string,
+        title?: string,
+        setupFiles?: ServedFiles[],
     ) {
         super()
+        this.title = title ?? this.constructor.name
+        this.supportedFilesProtocols = (this.constructor as typeof TestConductor).supportedFilesProtocols
+        this.includeFilesProtocol = (this.constructor as typeof TestConductor).includeFilesProtocol
+        this.setSetupFiles(...setupFiles)
     }
 
+    public readonly title: string
     private runId = -1
+    private readonly supportedFilesProtocols: string[]
+    private readonly includeFilesProtocol: boolean
 
     protected setupFiles: string[]
     setSetupFiles(

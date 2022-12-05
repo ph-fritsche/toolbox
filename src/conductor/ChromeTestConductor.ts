@@ -4,14 +4,7 @@ import { makeId } from '../test/Entity'
 import { TestConductor } from './TestConductor'
 
 export class ChromeTestConductor extends TestConductor {
-    protected supportedFilesProtocols: string[] = ['http:']
-
-    constructor(
-        readonly reporterServer: ReporterServer,
-        readonly testRunnerModule: string,
-    ) {
-        super(reporterServer)
-    }
+    static readonly supportedFilesProtocols: string[] = ['http:']
 
     readonly browser = puppeteer.launch({
         dumpio: true,

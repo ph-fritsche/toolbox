@@ -8,15 +8,8 @@ const prepareUrl = new URL('./node/prepare.cjs', selfUrl)
 const nodeFetchUrl = await import.meta.resolve('node-fetch', selfUrl)
 
 export class NodeTestConductor extends TestConductor {
-    protected supportedFilesProtocols: string[] = ['file:', 'http:']
-    protected includeFilesProtocol: boolean = false
-
-    constructor(
-        readonly reporterServer: ReporterServer,
-        readonly testRunnerModule: string,
-    ) {
-        super(reporterServer)
-    }
+    static readonly supportedFilesProtocols: string[] = ['file:', 'http:']
+    static readonly includeFilesProtocol: boolean = false
 
     protected async runTestSuite(
         runId: string,
