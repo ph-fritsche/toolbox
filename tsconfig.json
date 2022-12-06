@@ -11,5 +11,12 @@
         "moduleResolution": "Node",
         "module": "ESNext",
         "allowSyntheticDefaultImports": true,
+        "lib": [
+            "ESNext",
+            "DOM",
+        ],
+        "types": [
+            "node",
+        ],
     },
 }

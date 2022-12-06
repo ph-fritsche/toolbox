@@ -23,14 +23,19 @@
     },
     "devDependencies": {
         "@ph.fritsche/scripts-config": "^2.4.0",
+        "@swc/jest": "^0.2.23",
         "@types/istanbul-lib-instrument": "^1.7.4",
-        "@types/node": "^18.7.18",
+        "@types/jest": "^29.2.4",
+        "@types/node": "^16",
         "@types/resolve": "^1.20.2",
+        "jest": "^29.3.1",
         "shared-scripts": "^1.6.0",
         "typescript": "^4.8.2"
     },
     "scripts": {
-        "build": "scripts ts-build2 && cp src/conductor/node/prepare.cjs dist/conductor/node/prepare.cjs"
+        "dev": "jest --coverage=false --watch",
+        "build": "scripts ts-build2 && cp src/conductor/node/prepare.cjs dist/conductor/node/prepare.cjs",
+        "test": "jest"
     },
     "files": [
         "dist"
