@@ -3,7 +3,7 @@ import externalGlobals from 'rollup-plugin-external-globals'
 
 export function createGlobalsPlugin(
     {
-        globals,
+        globals = {},
     }: {
         globals?: GlobalsOption
     },
