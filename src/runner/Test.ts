@@ -16,5 +16,8 @@ export class Test extends BaseTest {
         }
     ) {
         super(props)
+        this.parent = props.parent
+        this.callback = props.callback
+        this.timeout = props.timeout
     }
 }

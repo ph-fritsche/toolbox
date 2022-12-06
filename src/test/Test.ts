@@ -12,9 +12,7 @@ export class Test extends Entity {
         },
     ) {
         super(props)
-        for (const k in props) {
-            this[k] = props[k]
-        }
+        this.title = props.title
     }
 
     ancestors() {
