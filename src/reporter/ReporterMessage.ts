@@ -1,4 +1,5 @@
 import { TestGroup, TestResult, TestError } from '../test'
+import type { CoverageMapData } from 'istanbul-lib-coverage'
 
 export type ReporterMessageMap<
     TGroup extends TestGroup,
@@ -13,6 +14,11 @@ export type ReporterMessageMap<
         runId: string
         testId: string
         result: TResult
+    }
+    complete: {
+        runId: string
+        groupId: string
+        coverage: CoverageMapData
     }
     error: {
         runId: string

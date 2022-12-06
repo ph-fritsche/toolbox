@@ -68,11 +68,9 @@ export abstract class TestConductor extends Entity {
         run.state = 'running'
         this.reporterServer.reportStart(run, this.setupFiles, testFiles)
 
-        await Promise.all(testFiles.map(f => this.runTestSuite(runId, f.url, f.id, f.name)
-            .then(
-                () => this.reporterServer.reportComplete(run, f.id),
-                async e => this.reporterServer.reportError(run, f.id, e),
-            )
+        await Promise.all(testFiles
+            .map(f => this.runTestSuite(runId, f.url, f.id, f.name)
+            .catch(e => this.reporterServer.reportError(run, f.id, e))
         ))
 
         run.state = 'done'

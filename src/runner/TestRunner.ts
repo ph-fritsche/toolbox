@@ -31,6 +31,12 @@ export class TestRunner {
                 result,
             })
         }
+
+        await this.report('complete', {
+            runId,
+            groupId: group.id,
+            coverage: globalThis.__coverage__,
+        })
     }
 
     protected async *execTestsIterator(

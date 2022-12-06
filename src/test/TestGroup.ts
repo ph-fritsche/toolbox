@@ -30,6 +30,7 @@ export class TestGroup extends Entity {
 
     toJSON() {
         return {
+            __T: 'TestGroup',
             id: this.id,
             title: this.title,
             children: this._children,

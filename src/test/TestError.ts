@@ -10,6 +10,7 @@ export class TestError extends Error {
 
     toJSON() {
         return {
+            __T: 'TestError',
             name: this.name,
             message: this.message,
             stack: this.stack,

@@ -29,6 +29,7 @@ export type ReporterEventMap = {
     complete: {
         run: TestRun
         group: TestGroup
+        coverage: object
     }
     error: {
         run: TestRun
@@ -102,6 +103,12 @@ export class ReporterServer {
                                 group: run.groups.get(report.groupId),
                                 error: report.error,
                             })
+                        } else if ('coverage' in report) {
+                            this.emitter.dispatch('complete', {
+                                run,
+                                group: run.groups.get(report.groupId),
+                                coverage: report.coverage,
+                            })
                         }
                     } catch (e) {
                         reject(e)
@@ -155,15 +162,6 @@ export class ReporterServer {
 
         group.addError(error)
         this.emitter.dispatch('error', {run, error, group})
-    }
-
-    async reportComplete(
-        run: TestRun,
-        groupId: string,
-    ) {
-        const group = run.groups.get(groupId)
-
-        this.emitter.dispatch('complete', {run, group })
     }
 
     async reportDone(
@@ -221,20 +219,28 @@ function parseReport(t: string) {
         ReporterMessageMap<TestGroup, TestResult, TestError>[keyof ReporterMessageMap<TestGroup, TestResult, TestError>]
 }
 
+type BaseEntities = {
+    TestGroup: BaseEntities.TestGroup
+    Test: BaseEntities.Test
+    TestResult: BaseEntities.TestResult
+    TestError: BaseEntities.TestError
+}
+function isRevivedType<K extends keyof BaseEntities>(
+    value: object,
+    type: K,
+): value is BaseEntities[K] {
+    return '__T' in value && value['__T'] === type
+}
 function reviveReportProps(key: string, value: unknown) {
     if (typeof value === 'object') {
-        if (key === 'result') {
-            return new TestResult(value as BaseEntities.TestResult)
-        } else if (key === 'error') {
-            return new TestError(value as BaseEntities.TestError)
-        } else if (key === 'group') {
-            return new TestGroup(value as BaseEntities.TestGroup)
-        } else if (String(Number(key)) === key) {
-            if ('children' in value) {
-                return new TestGroup(value as BaseEntities.TestGroup)
-            } else {
-                return new Test(value as BaseEntities.Test)
-            }
+        if (isRevivedType(value, 'Test')) {
+            return new Test(value)
+        } else if (isRevivedType(value, 'TestGroup')) {
+            return new TestGroup(value)
+        } else if (isRevivedType(value, 'TestError')) {
+            return new TestError(value)
+        } else if (isRevivedType(value, 'TestResult')) {
+            return new TestResult(value)
         }
     }
     return value

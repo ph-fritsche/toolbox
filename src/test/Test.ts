@@ -29,6 +29,7 @@ export class Test extends Entity {
 
     toJSON() {
         return {
+            __T: 'Test',
             id: this.id,
             title: this.title,
         }

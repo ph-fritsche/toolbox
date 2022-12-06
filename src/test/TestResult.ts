@@ -1,5 +1,3 @@
-import { Serializable } from "./types"
-
 export class TestResult {
     readonly duration?: number
     readonly error?: Error
@@ -13,8 +11,9 @@ export class TestResult {
         this.error = props.error
     }
 
-    toJSON(): Serializable<TestResult> {
+    toJSON() {
         return {
+            __T: 'TestResult',
             status: this.status,
             duration: this.duration,
             error: this.error && {
