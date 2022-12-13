@@ -1,4 +1,4 @@
-module.exports = {
+export default {
     verbose: true,
     collectCoverage: true,
     collectCoverageFrom: [
@@ -26,6 +26,10 @@ module.exports = {
             },
         ],
     },
+    extensionsToTreatAsEsm: ['.ts'],
     transformIgnorePatterns: [
+    ],
+    setupFilesAfterEnv: [
+        '<rootDir>/jest.setup.js',
     ],
 }

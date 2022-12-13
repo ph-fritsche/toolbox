@@ -1,7 +1,11 @@
-export function echo(
+export function echoFoo(
     input: string,
 ) {
-    return input
+    if (input.startsWith('b')) {
+        return input
+    } else {
+        return 'foo'
+    }
 }
 
 export function error() {
