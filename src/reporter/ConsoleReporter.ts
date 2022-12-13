@@ -2,11 +2,11 @@ import { makeEventTypeCheck } from '../event'
 import { Test } from './Test'
 import { TestGroup } from './TestGroup'
 import { TestResult } from './TestResult'
-import { TestRun } from '../conductor/TestRun'
-import { ReportStacks, TestNodeStack } from './ReportStacks'
+import { TestRun } from './TestRun'
+import { TestNodeStack } from './TestNodeStack'
 import { ReporterEventMap, ReporterServer } from './ReporterServer'
 import { TreeIterator } from '../test/TreeIterator'
-import { TestConductor } from '../conductor/TestConductor'
+import { TestRunStack } from './TestRunStack'
 
 const resultIcon = {
     timeout: '⌛',
@@ -40,14 +40,17 @@ export class ConsoleReporter {
             for (const k of events) {
                 set.add(server.emitter.addListener(k, e => this.log(e)))
             }
-            set.add(server.emitter.addListener('start', e => this.stacks.makeStack(e.run, e.testFiles.map(f => f.name))))
+
             set.add(server.emitter.addListener('done', e => {
-                const stack = this.stacks.getStack(e.run)
+                if (!e.run.stack) {
+                    return
+                }
+
                 process.stdout.write([
                     '',
-                    `Results from ${stack.size} conductors:`,
-                    `${this.printTreeSummary(this.stacks.aggregateResults(stack))}`,
-                    this.printConductorSummary(stack),
+                    `Results from ${e.run.stack.runs.length} conductors:`,
+                    `${this.printTreeSummary(e.run.stack.aggregateNodes())}`,
+                    this.printConductorSummary(e.run.stack),
                     ''
                 ].join('\n'))
             }))
@@ -69,7 +72,6 @@ export class ConsoleReporter {
         summary: true,
     }
 
-    protected stacks = new ReportStacks()
     protected lastLog = ''
 
     protected log<
@@ -183,10 +185,10 @@ export class ConsoleReporter {
     }
 
     protected printConductorSummary(
-        stack: Map<TestConductor, TestRun>
+        stack: TestRunStack,
     ) {
         let t = ''
-        for (const [conductor, run] of stack.entries()) {
+        for (const run of stack.runs) {
             const count = { success: 0, fail: 0, timeout: 0, skipped: 0 }
             run.results.forEach(result => {
                 count[result.status]++
@@ -199,7 +201,7 @@ export class ConsoleReporter {
                         ? summaryIcon.fail
                         : summaryIcon.success
 
-            t += `[${stateIcon}] ${conductor?.title}\n`
+            t += `[${stateIcon}] ${run.conductor?.title}\n`
             t += `${run.results.size} tests were run: ${count.success} succeeded, ${count.fail} failed, ${count.timeout} timed out, ${count.skipped} were skipped\n`
             if (run.errors.size) {
                 const n = Array.from(run.errors.values()).reduce((n, e) => n + e.length, 0)

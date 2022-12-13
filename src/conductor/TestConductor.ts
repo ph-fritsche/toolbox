@@ -1,6 +1,6 @@
 import { Entity, makeId } from '../test/Entity'
 import { TestGroup } from '../reporter/TestGroup'
-import { TestRun } from './TestRun'
+import { TestRun } from '../reporter/TestRun'
 import { ReporterServer } from '../reporter/ReporterServer'
 
 export interface ServedFiles {
@@ -40,7 +40,7 @@ export abstract class TestConductor extends Entity {
         }).flat(1)
     }
 
-    async runTests(
+    createTestRun(
         ...tests: ServedFiles[]
     ) {
         const runId = `${this.id}:${++this.runId}`
@@ -54,7 +54,7 @@ export abstract class TestConductor extends Entity {
             }))
         }).flat(1)
 
-        const run = new TestRun(this, {id: runId})
+        const {run, start, done} = TestRun.create(this, {id: runId})
         testFiles.forEach(f => {
             const t = new TestGroup({
                 id: f.id,
@@ -65,16 +65,19 @@ export abstract class TestConductor extends Entity {
             run.groups.set(f.id, t)
         })
 
-        run.state = 'running'
-        this.reporterServer.reportStart(run, this.setupFiles, testFiles)
-
-        await Promise.all(testFiles
-            .map(f => this.runTestSuite(runId, f.url, f.id, f.name)
-            .catch(e => this.reporterServer.reportError(run, f.id, e))
-        ))
-
-        run.state = 'done'
-        this.reporterServer.reportDone(run)
+        return {
+            run,
+            exec: async () => {
+                start()
+        
+                await Promise.all(testFiles
+                    .map(f => this.runTestSuite(runId, f.url, f.id, f.name)
+                    .catch(e => this.reporterServer.reportError(run, f.id, e))
+                ))
+        
+                done()
+            }
+        }
     }
 
     protected abstract runTestSuite(
@@ -94,16 +97,5 @@ export abstract class TestConductor extends Entity {
             ? files.server.pathname
             : String(files.server)
         ) + (files.server.pathname.endsWith('/') ? '' : '/')
-    }
-}
-
-function trimStart(
-    str: string,
-    chars: string,
-) {
-    for (let i = 0;; i++) {
-        if (i >= str.length || !chars.includes(str[i])) {
-            return str.substring(i)
-        }
     }
 }

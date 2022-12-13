@@ -8,14 +8,13 @@ import { Test } from './Test'
 import { TestError } from './TestError'
 import { TestGroup } from './TestGroup'
 import { TestResult } from './TestResult'
-import { TestRun } from '../conductor/TestRun'
+import { TestRun } from './TestRun'
 import { TreeIterator } from '../test/TreeIterator'
+import { TestRunStack } from './TestRunStack'
 
 export type ReporterEventMap = {
     start: {
         run: TestRun
-        setupFiles: string[]
-        testFiles: Array<{ name: string, url: string }>
     }
     schedule: {
         run: TestRun
@@ -141,11 +140,9 @@ export class ReporterServer {
 
     async reportStart(
         run: TestRun,
-        setupFiles: string[],
-        testFiles: Array<{name: string, url: string}>
     ) {
         this.testRuns.set(run.id, run)
-        this.emitter.dispatch('start', {run, setupFiles, testFiles})
+        this.emitter.dispatch('start', {run})
     }
 
     async reportError(
@@ -166,7 +163,7 @@ export class ReporterServer {
     }
 
     async reportDone(
-        run: TestRun
+        run: TestRun,
     ) {
         this.emitter.dispatch('done', {run})
     }
