@@ -104,6 +104,7 @@ export class ReporterServer {
                                 error: report.error,
                             })
                         } else if ('coverage' in report) {
+                            run.coverage.set(report.groupId, report.coverage)
                             this.emitter.dispatch('complete', {
                                 run,
                                 group: run.groups.get(report.groupId),

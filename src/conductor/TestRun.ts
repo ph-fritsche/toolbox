@@ -1,3 +1,4 @@
+import type { CoverageMapData } from 'istanbul-lib-coverage'
 import { Entity } from '../test/Entity'
 import { Test } from '../reporter/Test'
 import { TestError } from '../reporter/TestError'
@@ -21,4 +22,6 @@ export class TestRun extends Entity {
     results = new Map<string, TestResult>
     /** Map groupId->TestError */
     errors = new Map<string, TestError[]>
+    /** Map groupId->CoverageMapData */
+    coverage = new Map<string, CoverageMapData>
 }
