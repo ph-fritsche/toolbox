@@ -43,7 +43,7 @@ export class TmpFileServer extends FileServer<TmpFileServerEventMap> {
 
     updateFiles(files: OutputFilesMap) {
         return this._files = this._files.then(async prevFiles => {
-            const rootDir = (await this._url).pathname
+            const rootDir = (await this.url).pathname
 
             const dirs = new Set<string>()
             files.forEach((f, name) => {

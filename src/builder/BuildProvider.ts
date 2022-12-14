@@ -1,5 +1,5 @@
 import { Stats } from 'fs'
-import { watch } from 'chokidar'
+import { FSWatcher, watch } from 'chokidar'
 import { EventEmitter } from '../event'
 import { Builder } from './Builder'
 
@@ -40,7 +40,7 @@ export class BuildProvider {
         })
     }
     private basePath = `${process.cwd()}/`
-    private _watcher
+    private _watcher: FSWatcher
     private _ready = false
 
     readonly files = new Map<string, Stats|undefined>()
@@ -105,6 +105,16 @@ export class BuildProvider {
     }
     get ready() {
         return this._ready
+    }
+
+    close() {
+        this._watcher.close()
+    }
+    watch(watchedFiles: string[]) {
+        this._watcher.add(watchedFiles)
+    }
+    unwatch(watchedFiles: string[]) {
+        this._watcher.unwatch(watchedFiles)
     }
 }
 

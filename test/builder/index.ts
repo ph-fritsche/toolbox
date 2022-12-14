@@ -19,6 +19,11 @@ describe('build fixture src', () => {
         tsConfigFile: './tsconfig.json',
     })
 
+    afterAll(() => {
+        buildProvider.close()
+        fileServer.close()
+    })
+
     test('provide transpiled code', async () => {
         await new Promise<void>(r => onBuildDone(async () => r()))
 

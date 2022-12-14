@@ -134,6 +134,10 @@ export class ReporterServer {
         return new URL(`http://${addr.family === 'IPv6' ? `[${addr.address}]` : addr.address}:${addr.port}/`)
     }
 
+    close() {
+        this.http.close()
+    }
+
     async registerFileServer(server: FileServer) {
         this.fileServers.set(String(await server.url), server)
     }

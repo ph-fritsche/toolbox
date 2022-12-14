@@ -16,23 +16,7 @@ export class HttpFileServer extends FileServer<HttpFileServerEventMap> {
         host = '127.0.0.1',
     ) {
         super(provider)
-        this._url = new Promise<URL>((res, rej) => {
-            this.server.listen(port, host, () => {
-                const url = this.getUrl()
-                if (url) {
-                    res(url)
-                } else {
-                    rej()
-                }
-            })
-            this.server.on('error', e => {
-                rej(e)
-                throw e
-            })
-            this.server.on('close', () => {
-                this._url = Promise.reject('Server is already closed.')
-            })
-        })
+        this.listen(port, host)
     }
     readonly server = createServer(async (req, res) => {
         if (req.method === 'GET') {
@@ -72,5 +56,32 @@ export class HttpFileServer extends FileServer<HttpFileServerEventMap> {
             return new URL(addr)
         }
         return new URL(`http://${addr.family === 'IPv6' ? `[${addr.address}]` : addr.address}:${addr.port}/`)
+    }
+
+    listen(
+        port = 0,
+        host = '127.0.0.1',
+    ) {
+        this._url = new Promise<URL>((res, rej) => {
+            this.server.listen(port, host, () => {
+                const url = this.getUrl()
+                if (url) {
+                    res(url)
+                } else {
+                    rej()
+                }
+            })
+            this.server.on('error', e => {
+                rej(e)
+                throw e
+            })
+            this.server.on('close', () => {
+                this._url = 'Server has already been closed.'
+            })
+        })
+    }
+
+    close() {
+        this.server.close()
     }
 }
