@@ -80,6 +80,8 @@ export abstract class TestConductor extends Entity {
         }
     }
 
+    async close() {}
+
     protected abstract runTestSuite(
         runId: string,
         testFile: string,

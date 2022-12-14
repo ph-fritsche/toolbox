@@ -1,5 +1,4 @@
 import puppeteer from 'puppeteer-core'
-import { ReporterServer } from '../reporter/ReporterServer'
 import { makeId } from '../test/Entity'
 import { TestConductor } from './TestConductor'
 
@@ -15,6 +14,10 @@ export class ChromeTestConductor extends TestConductor {
             '--headless',
         ],
     })
+
+    async close(): Promise<void> {
+        return (await this.browser).close()
+    }
 
     protected async runTestSuite(
         runId: string,

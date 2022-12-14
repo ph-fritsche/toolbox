@@ -1,5 +1,4 @@
 import { spawn } from 'child_process'
-import { ReporterServer } from '../reporter/ReporterServer'
 import { TestConductor } from './TestConductor'
 
 const selfUrl = import.meta.url
