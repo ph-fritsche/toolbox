@@ -36,7 +36,7 @@ export class TmpFileServer extends FileServer<TmpFileServerEventMap> {
         })
     }
 
-    protected _files: Promise<OutputFilesMap> = Promise.resolve(new Map())
+    protected _files: Promise<OutputFilesMap> = Promise.resolve<OutputFilesMap>(new Map())
     get files() {
         return this._files
     }
@@ -84,14 +84,14 @@ export class TmpFileServer extends FileServer<TmpFileServerEventMap> {
             makeDirs.forEach(d => {
                 const parent = d.includes('/') ? d.substring(0, d.lastIndexOf('/')) : undefined
                 mkPromise.set(d, (parent && mkPromise.get(parent) || Promise.resolve())
-                    .then(() => fs.mkdir(`${rootDir}/${d}`))
+                    .then(() => fs.mkdir(`${rootDir}/${d}`)),
                 )
             })
             await Promise.all(mkPromise.values())
 
             await Promise.all(
                 Array.from(files.entries())
-                    .map(([name, {content}]) => fs.writeFile(`${rootDir}/${name}`, content))
+                    .map(([name, {content}]) => fs.writeFile(`${rootDir}/${name}`, content)),
             )
 
             this.emitter.dispatch('update', {

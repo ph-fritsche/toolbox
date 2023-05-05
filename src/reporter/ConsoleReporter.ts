@@ -26,7 +26,7 @@ const summaryIcon = {
 }
 
 const isEventType = makeEventTypeCheck<ReporterEventMap>()
-const events: Array<keyof ReporterEventMap> = ['complete','done','error','result','schedule','start']
+const events: Array<keyof ReporterEventMap> = ['complete', 'done', 'error', 'result', 'schedule', 'start']
 
 export class ConsoleReporter {
     protected unsubscribe = new Map<ReporterServer, Set<() => void>>()
@@ -51,7 +51,7 @@ export class ConsoleReporter {
                     `Results from ${e.run.stack.runs.length} conductors:`,
                     `${this.printTreeSummary(e.run.stack.aggregateNodes())}`,
                     this.printConductorSummary(e.run.stack),
-                    ''
+                    '',
                 ].join('\n'))
             }))
         }
@@ -94,13 +94,15 @@ export class ConsoleReporter {
         } else if (isEventType(event, 'result')) {
             const test = event.run.tests.get(event.testId)
             const result = event.result
-            process.stdout.write(this.printResult(test, result))
+            if (test) {
+                process.stdout.write(this.printResult(test, result))
+            }
         } else if (isEventType(event, 'error')) {
             const path = Array.from(new TreeIterator(event.group).getAncestors()).reverse()
             process.stdout.write(`${resultIcon.error} ${path.map(t => t.title).join(' › ') }\n`)
             process.stdout.write(event.error.hook
                 ? `Test hook ${ event.error.hook } failed.\n`
-                : `Test suite failed.\n`
+                : `Test suite failed.\n`,
             )
             process.stdout.write((event.error.stack ?? `${event.error.name}: ${event.error.message}`).trim() + '\n')
             process.stdout.write('\n')
@@ -126,7 +128,7 @@ export class ConsoleReporter {
     protected printTree(
         children: Array<TestGroup|Test>,
         testRun?: TestRun,
-        indent = ''
+        indent = '',
     ) {
         let t = ''
         for (let i = 0; i < children.length; i++) {
@@ -134,13 +136,14 @@ export class ConsoleReporter {
             const child = children[i]
             if (isGroup(child)) {
                 t += indent + (isLast ? '└' : '├') + child.title
-                if (testRun?.errors.has(child.id)) {
-                    t += ` ${resultIcon.error} ${testRun.errors.get(child.id).length} errors`
+                const errors = testRun?.errors.get(child.id)
+                if (errors) {
+                    t += ` ${resultIcon.error} ${errors.length} errors`
                 }
                 t += '\n'
                 t += this.printTree(
                     child.children,
-                    testRun,                    
+                    testRun,
                     indent + (isLast ? ' ' : '╎'),
                 )
             } else if (testRun) {
@@ -162,7 +165,7 @@ export class ConsoleReporter {
         tree?: {
             indent: string
             isLast: boolean
-        }
+        },
     ) {
         let t = ''
         const statusBox = `[${result ? resultIcon[result.status] ?? result.status : resultIcon.missing}]`
@@ -172,10 +175,10 @@ export class ConsoleReporter {
             }
             t += tree.indent + (tree.isLast ? '└' : '├') + statusBox + test.title + '\n'
         } else {
-            t += statusBox + ' ' + test.ancestors().concat([test]).map(n => n.title).join(' › ') + '\n'
+            t += statusBox + ' ' + [...test.ancestors(), test].map(n => n.title).join(' › ') + '\n'
         }
         if (result?.error) {
-            t += result.error.stack.trim() || `${result.error.name}: ${result.error.message.trim()}`
+            t += result.error.stack?.trim() || `${result.error.name}: ${result.error.message.trim()}`
             t += '\n'
             t += tree
                 ? tree.indent + (tree.isLast ? ' ' : '╎') + '\n'
@@ -213,7 +216,7 @@ export class ConsoleReporter {
 
     protected printTreeSummary(
         children: Array<TestNodeStack>,
-        indent = ''
+        indent = '',
     ) {
         let t = ''
         for (let i = 0; i < children.length; i++) {
@@ -246,7 +249,7 @@ export class ConsoleReporter {
         tree: {
             indent: string
             isLast: boolean
-        }
+        },
     ) {
         const results = test.getResults()
         const divided = results.size > 1
@@ -260,15 +263,13 @@ export class ConsoleReporter {
         const pre = tree.indent + (tree.isLast ? ' ' : '╎')
         if (results.has('fail') || results.has('timeout')) {
             for(const k of ['success', 'skipped', 'fail', 'timeout'] as const) {
-                if (results.has(k)) {
-                    results.get(k).forEach(([run, result]) => {
-                        t += pre + ` [${resultIcon[k]}] ${run.conductor.title}\n`
-                        if (result.error) {
-                            t += result.error.stack.trim() || `${result.error.name}: ${result.error.message.trim()}`
-                            t += '\n'
-                        }
-                    })
-                }
+                results.get(k)?.forEach(([run, result]) => {
+                    t += pre + ` [${resultIcon[k]}] ${run.conductor.title}\n`
+                    if (result.error) {
+                        t += result.error.stack?.trim() || `${result.error.name}: ${result.error.message.trim()}`
+                        t += '\n'
+                    }
+                })
             }
         }
         if (results.has('fail') || results.has('timeout')) {

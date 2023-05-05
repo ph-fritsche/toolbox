@@ -22,7 +22,7 @@ export class TestGroup extends BaseTestGroup {
     constructor(
         props: ConstructorParameters<typeof BaseTestGroup>[0] & {
             parent?: TestGroup
-        }
+        },
     ) {
         super(props)
         this.parent = props.parent
@@ -96,7 +96,7 @@ export class TestGroup extends BaseTestGroup {
                     await fn.call(this)
                 } catch (e) {
                     const type = test ? 'Each' : 'All'
-                    const suffix = s === stack ? '' : ` (per before${type}:${per.name || 'anonymous'})`
+                    const suffix = s === stack ? '' : ` (per before${type}:${per?.name || 'anonymous'})`
                     const hook = `after${type}:${fn.name || 'anonymous'}${suffix}`
                     const reason = e instanceof Error ? e : String(e)
                     errors.push(new TestError(this, hook, reason, test))

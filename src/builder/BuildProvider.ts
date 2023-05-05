@@ -46,7 +46,7 @@ export class BuildProvider {
     readonly files = new Map<string, Stats|undefined>()
 
     readonly emitter = new EventEmitter<BuildProviderEventMap>()
-    
+
     private _builders = new Map<string, BuilderEntry>()
     connect(
         builder: Builder,
@@ -108,7 +108,7 @@ export class BuildProvider {
     }
 
     close() {
-        this._watcher.close()
+        return this._watcher.close()
     }
     watch(watchedFiles: string[]) {
         this._watcher.add(watchedFiles)

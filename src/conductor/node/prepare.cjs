@@ -1,3 +1,5 @@
+/* eslint-disable no-undef */
+
 const listeners = process.listeners('warning')
 
 process.removeAllListeners('warning')

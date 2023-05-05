@@ -16,20 +16,20 @@ export class TestRun extends Entity implements PromiseLike<void> {
         const run = new TestRun(conductor, others)
         return {
             run,
-            start() {
+            start: () => {
                 if (run._state === 'pending') {
                     run._state = 'running'
                     run._startPromise.resolve()
-                    run.conductor.reporterServer.reportStart(run)
+                    return run.conductor.reporterServer.reportStart(run)
                 }
             },
-            done() {
+            done: () => {
                 if (run._state === 'running') {
                     run._state = 'done'
                     run._donePromise.resolve()
-                    run.conductor.reporterServer.reportDone(run)
+                    return run.conductor.reporterServer.reportDone(run)
                 }
-            }
+            },
         }
     }
 

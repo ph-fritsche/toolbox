@@ -11,12 +11,12 @@ export interface ServedFiles {
 export abstract class TestConductor extends Entity {
     protected static readonly supportedFilesProtocols: string[] = []
     protected static readonly includeFilesProtocol: boolean = false
-    
+
     constructor(
         public readonly reporterServer: ReporterServer,
         public readonly testRunnerModule: string,
         title?: string,
-        setupFiles?: ServedFiles[],
+        setupFiles: ServedFiles[] = [],
     ) {
         super()
         this.title = title ?? this.constructor.name
@@ -30,7 +30,7 @@ export abstract class TestConductor extends Entity {
     private readonly supportedFilesProtocols: string[]
     private readonly includeFilesProtocol: boolean
 
-    protected setupFiles: string[]
+    protected setupFiles: string[] = []
     setSetupFiles(
         ...files: ServedFiles[]
     ) {
@@ -50,7 +50,7 @@ export abstract class TestConductor extends Entity {
             return f.paths.map(p => ({
                 id: makeId(6),
                 name: p,
-                url: `${base}${p}`
+                url: `${base}${p}`,
             }))
         }).flat(1)
 
@@ -68,19 +68,21 @@ export abstract class TestConductor extends Entity {
         return {
             run,
             exec: async () => {
-                start()
-        
+                await start()
+
                 await Promise.all(testFiles
                     .map(f => this.runTestSuite(runId, f.url, f.id, f.name)
-                    .catch(e => this.reporterServer.reportError(run, f.id, e))
-                ))
-        
-                done()
-            }
+                        .catch(e => this.reporterServer.reportError(run, f.id, e)),
+                    ))
+
+                await done()
+            },
         }
     }
 
-    async close() {}
+    async close() {
+        // empty
+    }
 
     protected abstract runTestSuite(
         runId: string,

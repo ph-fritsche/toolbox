@@ -19,7 +19,7 @@ function readTsConfig(file: string): tsConfig {
         compilerOptions: {
             ...extended.compilerOptions,
             ...config.compilerOptions,
-        }
+        },
     }
 }
 

@@ -11,15 +11,14 @@ export class TestRunStack extends Entity implements PromiseLike<void> {
         super()
         this.testRuns = new Set(testRuns)
         for (const run of testRuns) {
+            // eslint-disable-next-line @typescript-eslint/no-floating-promises
             Object.defineProperty(run, 'stack', {
                 configurable: true,
                 get: () => this,
             })
         }
-        this.done = new Promise(async r => {
-            await Promise.allSettled(testRuns.map(r => r.onDone()))
-            r()
-        })
+        this.done = Promise.allSettled(testRuns.map<void>(r => r.onDone()))
+            .then<void>(() => void 0)
     }
     protected readonly testRuns: Set<TestRun>
     protected readonly done: Promise<void>
@@ -45,7 +44,8 @@ export class TestRunStack extends Entity implements PromiseLike<void> {
             for (const suite of run.suites.values()) {
                 nodemap.set(suite, main.addChild(run, suite))
                 for (const { parent, node } of this.traverseNodes(suite)) {
-                    nodemap.set(node, nodemap.get(parent).addChild(run, node))
+                    const p = nodemap.get(parent) as TestNodeStack
+                    nodemap.set(node, p.addChild(run, node))
                 }
             }
         }

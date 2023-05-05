@@ -1,4 +1,4 @@
-import { Plugin } from "rollup"
+import { Plugin } from 'rollup'
 import {createInstrumenter} from 'istanbul-lib-instrument'
 
 export function createIstanbulPlugin(): Plugin {
@@ -22,7 +22,7 @@ export function createIstanbulPlugin(): Plugin {
                 version: String(version),
             })
             const sourceMap = instrumenter.lastSourceMap()
-            
+
             return {
                 code: instrumentedCode,
 
@@ -34,6 +34,6 @@ export function createIstanbulPlugin(): Plugin {
                     version: Number(sourceMap.version),
                 },
             }
-        }
+        },
     }
 }

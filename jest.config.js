@@ -13,8 +13,8 @@ export default {
         '/_.*(?<!.test.[jt]sx?)$',
     ],
     transform: {
-        "^.+\\.(t|j)sx?$": [
-            "@swc/jest",
+        '^.+\\.(t|j)sx?$': [
+            '@swc/jest',
             {
                 jsc: {
                     paths: {

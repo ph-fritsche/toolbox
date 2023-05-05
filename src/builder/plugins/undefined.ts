@@ -1,4 +1,4 @@
-import { Plugin } from "rollup";
+import { Plugin } from 'rollup'
 
 const PREFIX = '\0undefined?'
 export function createUndefinedPlugin(): Plugin {

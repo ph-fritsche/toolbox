@@ -1,16 +1,16 @@
-import { Test } from './Test';
+import { Test } from './Test'
 import { TestGroup } from './TestGroup'
 
 type Child<T> = T extends TestGroup ? T['children'][number] : never
 
 export class TreeIterator<T extends TestGroup|Test> {
     constructor(
-        readonly element: T
+        readonly element: T,
     ) {
 
     }
 
-    *getAncestors(): Generator<T['parent']> {
+    *getAncestors(): Generator<NonNullable<T['parent']>> {
         for (let el = this.element.parent; el; el = el.parent) {
             yield el
         }

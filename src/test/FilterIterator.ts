@@ -1,17 +1,21 @@
 import { Test } from './Test'
 import { TestGroup } from './TestGroup'
 
-type Child<T> = T extends TestGroup ? T['children'][number] : never
+type Child<T> = T extends {children: Array<unknown>} ? T['children'][number] : never
+type Filter<T> = (item: T | Child<T>) => boolean
 
 export class FilterIterator<T extends TestGroup|Test> {
     constructor(
         readonly element: T,
-        readonly filter?: (item: T | Child<T>) => boolean,
+        readonly filter?: Filter<T>,
     ) {
-        this.hit = filter?.(this.element)
+        this.hit = !!filter?.(this.element)
 
         if ('children' in element) {
-            this.children = element.children.map(child => new FilterIterator(child, filter) as FilterIterator<Child<T>>)
+            this.children = element.children.map(child => new FilterIterator<Child<T>>(
+                child as Child<T>,
+                filter as Filter<Child<T>>,
+            ))
         }
 
         this.include = this.hit || !filter || this.children.some(el => el.include)
@@ -21,7 +25,8 @@ export class FilterIterator<T extends TestGroup|Test> {
     readonly include: boolean
     readonly children: FilterIterator<Child<T>>[] = []
 
-    ;*[Symbol.iterator](): Generator<FilterIterator<Child<T>>, void, undefined> {
+        ;
+    *[Symbol.iterator](): Generator<FilterIterator<Child<T>>, void, undefined> {
         yield* this.children
     }
 }

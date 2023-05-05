@@ -7,7 +7,7 @@ import { createTransformPlugin } from './plugins/transform'
 import { createIstanbulPlugin } from './plugins/instrument'
 import { createNodeCoreEntryFileNames, createNodeCorePaths, createNodePolyfillPlugin, createNodeReexportPlugin } from './plugins/node'
 import { Builder } from './Builder'
-import { isNodeJsBuiltin } from './module'
+import { isBuiltin } from 'node:module'
 import { createUndefinedPlugin } from './plugins/undefined'
 import { createCachePlugin, CachePluginOptions } from './plugins/cache'
 import { createJsonPlugin } from './plugins/json'
@@ -43,7 +43,7 @@ export function createSourceBuilder(
         paths: createNodeCorePaths(),
         outputOptions: {
             globals,
-        }
+        },
     })
 }
 
@@ -73,7 +73,7 @@ export function createDependencyBuilder(
         ],
         isExternal: (source, importer, isResolved) =>
             globals && source in globals
-            || isResolved && isNodeJsBuiltin(source),
+            || isResolved && isBuiltin(source),
         outputOptions: {
             preserveModules: false,
             globals,
@@ -83,8 +83,8 @@ export function createDependencyBuilder(
 }
 
 export function createNodeReexportBuilder(
-    {
-    }: {} = {},
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    options: object = {},
     id = 'nodeReexport',
 ) {
     return new Builder({
@@ -102,8 +102,8 @@ export function createNodeReexportBuilder(
 }
 
 export function createNodePolyfillBuilder(
-    {
-    }: {} = {},
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    options: object = {},
     id = 'nodePolyfill',
 ) {
     return new Builder({

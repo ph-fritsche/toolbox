@@ -23,13 +23,14 @@ export type CachePluginOptions = {
 const cachedSuffix = '?cached'
 const Cached = Symbol('cached')
 type Cached = {
-    fileName: string
+    fileName?: string
     hash: string
-    dependencies: {
+    idHash: string
+    dependencies?: {
         internal?: string[]
         external?: string[]
     }
-    code: string
+    code?: string
     map?: SourceMap
 }
 declare module 'rollup' {
@@ -57,8 +58,7 @@ export function createCachePlugin(
     const renderedChunks = new Map<string, RenderedChunk>()
 
     function writeCached(
-        idHash: string,
-        cached: Cached,
+        {idHash, ...cached}: Cached,
     ) {
         return fs.writeFile(path.join(absCacheDir, idHash), JSON.stringify(cached))
     }
@@ -70,7 +70,7 @@ export function createCachePlugin(
             cached.set(idHash, fs.readFile(path.join(absCacheDir, idHash)).then(
                 b => {
                     try {
-                        return JSON.parse(String(b))
+                        return {idHash, ...JSON.parse(String(b))} as Cached
                     } catch {
                         return undefined
                     }
@@ -81,7 +81,7 @@ export function createCachePlugin(
         return cached.get(idHash) as Promise<Cached|undefined>
     }
 
-    function emitCached(
+    async function emitCached(
         this: PluginContext,
         idHash: string,
         chunk: Cached,
@@ -100,20 +100,20 @@ export function createCachePlugin(
         return emitDependencies.call(this, chunk)
     }
 
-    function emitDependencies(
+    async function emitDependencies(
         this: PluginContext,
         chunk: Cached,
     ) {
-        return Promise.all(
-            (chunk.dependencies.internal ?? []).map(h => getCached(h)
+        await Promise.all(
+            (chunk.dependencies?.internal ?? []).map(h => getCached(h)
                 .then(c => {
                     if (!c) {
-                        throw new Error(`Missing/corrupted cached dependency "${h}" in "${chunk.fileName}".`)
+                        throw new Error(`Missing/corrupted cached dependency "${h}" in "${String(chunk.fileName)}".`)
                     }
 
                     return emitCached.call(this, h, c)
-                })
-            )
+                }),
+            ),
         )
     }
 
@@ -135,10 +135,12 @@ export function createCachePlugin(
 
                 hashFileIds.forEach(f => {
                     if (!fileHash.has(f)) {
-                        fileHash.set(f, new Promise((res, rej) => fs.readFile(f).then(
-                            content => res(createHash('sha1').update(content).digest()),
-                            r => rej(r),
-                        )))
+                        fileHash.set(f, new Promise((res, rej) => {
+                            fs.readFile(f).then(
+                                content => res(createHash('sha1').update(content).digest()),
+                                r => rej(r),
+                            )
+                        }))
                     }
                 })
 
@@ -146,7 +148,7 @@ export function createCachePlugin(
 
                 const hashFileHash = createHash('sha1')
                 hashFileHash.update(id)
-                for await (const h of hashFileIds.map(f => fileHash.get(f))) {
+                for await (const h of hashFileIds.map(f => fileHash.get(f) as Promise<Buffer>)) {
                     hashFileHash.update(h)
                 }
                 const hash = hashFileHash.digest('hex')
@@ -180,11 +182,11 @@ export function createCachePlugin(
                 return
             }
 
-            const cached = this.getModuleInfo(id).meta[Cached]
+            const cached = this.getModuleInfo(id)?.meta[Cached]
 
             return [
                 'export default undefined',
-                ...cached.dependencies.external?.map(id => `import "${id}"`),
+                ...(cached?.dependencies?.external?.map(id => `import "${id}"`) ?? []),
             ].join('\n')
         },
         renderStart() {
@@ -194,8 +196,8 @@ export function createCachePlugin(
             if (!chunk.facadeModuleId?.endsWith(cachedSuffix)) {
                 renderedChunks.set(chunk.fileName, chunk)
             } else if (chunk.facadeModuleId.endsWith(cachedSuffix)) {
-                const { meta: {[Cached]: cached} } = this.getModuleInfo(chunk.facadeModuleId)
-                if (cached) {
+                const cached = this.getModuleInfo(chunk.facadeModuleId)?.meta[Cached]
+                if (cached?.code) {
                     await emitDependencies.call(this, cached)
                     return {
                         code: cached.code,
@@ -211,18 +213,19 @@ export function createCachePlugin(
                 const info = chunk.facadeModuleId ? this.getModuleInfo(id) : undefined
 
                 const idHash = createHash('sha1').update(id).digest('hex')
-                const hash = info?.meta[Cached].hash
-                
+                const hash = info?.meta[Cached]?.hash as string
+
                 const dependencies: Cached['dependencies'] = {external: [], internal: []}
                 for (const importedId of chunk.imports) {
                     if (renderedChunks.has(importedId)) {
-                        dependencies.internal.push(createHash('sha1').update(importedId).digest('hex'))
+                        dependencies.internal?.push(createHash('sha1').update(importedId).digest('hex'))
                     } else {
-                        dependencies.external.push(importedId)
+                        dependencies.external?.push(importedId)
                     }
                 }
 
-                return writeCached(idHash, {
+                return writeCached({
+                    idHash,
                     hash,
                     fileName,
                     dependencies,

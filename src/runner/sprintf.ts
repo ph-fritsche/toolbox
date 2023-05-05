@@ -1,10 +1,12 @@
+/* eslint-disable */
+
 /**
  * The following code is derived from
  * https://github.com/alexei/sprintf.js/blob/8a3a4bb0000150ab988abdffd97a2bdb11d49bf9/src/sprintf.js
  *
  * Copyright (c) 2007-present, Alexandru Mărășteanu <hello@alexei.ro>
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
  * * Redistributions of source code must retain the above copyright
@@ -15,7 +17,7 @@
  * * Neither the name of this software nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
  * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
  * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
@@ -44,7 +46,7 @@ var re = {
     key: /^([a-z_][a-z_\d]*)/i,
     key_access: /^\.([a-z_][a-z_\d]*)/i,
     index_access: /^\[(\d+)\]/,
-    sign: /^[+-]/
+    sign: /^[+-]/,
 }
 
 export function sprintf(format: string, ...args: any[]) {
@@ -56,7 +58,7 @@ export function vsprintf(format: string, args: any[]) {
 }
 
 function sprintf_format(parse_tree: unknown[], argv: any[]) {
-    var cursor = 1, tree_length = parse_tree.length, arg, output = '', i, k, ph, pad, pad_character, pad_length, is_positive, sign
+    var cursor = 1, tree_length = parse_tree.length, arg, output = '', i, k, ph: any, pad, pad_character, pad_length, is_positive, sign
     for (i = 0; i < tree_length; i++) {
         if (typeof parse_tree[i] === 'string') {
             output += parse_tree[i]
@@ -92,56 +94,56 @@ function sprintf_format(parse_tree: unknown[], argv: any[]) {
             }
 
             switch (ph.type) {
-                case 'b':
-                    arg = parseInt(arg, 10).toString(2)
-                    break
-                case 'c':
-                    arg = String.fromCharCode(parseInt(arg, 10))
-                    break
-                case 'd':
-                case 'i':
-                    arg = parseInt(arg, 10)
-                    break
-                case 'j':
-                    arg = JSON.stringify(arg, null, ph.width ? parseInt(ph.width) : 0)
-                    break
-                case 'e':
-                    arg = ph.precision ? parseFloat(arg).toExponential(ph.precision) : parseFloat(arg).toExponential()
-                    break
-                case 'f':
-                    arg = ph.precision ? parseFloat(arg).toFixed(ph.precision) : parseFloat(arg)
-                    break
-                case 'g':
-                    arg = ph.precision ? String(Number(arg.toPrecision(ph.precision))) : parseFloat(arg)
-                    break
-                case 'o':
-                    arg = (parseInt(arg, 10) >>> 0).toString(8)
-                    break
-                case 's':
-                    arg = String(arg)
-                    arg = (ph.precision ? arg.substring(0, ph.precision) : arg)
-                    break
-                case 't':
-                    arg = String(!!arg)
-                    arg = (ph.precision ? arg.substring(0, ph.precision) : arg)
-                    break
-                case 'T':
-                    arg = Object.prototype.toString.call(arg).slice(8, -1).toLowerCase()
-                    arg = (ph.precision ? arg.substring(0, ph.precision) : arg)
-                    break
-                case 'u':
-                    arg = parseInt(arg, 10) >>> 0
-                    break
-                case 'v':
-                    arg = arg.valueOf()
-                    arg = (ph.precision ? arg.substring(0, ph.precision) : arg)
-                    break
-                case 'x':
-                    arg = (parseInt(arg, 10) >>> 0).toString(16)
-                    break
-                case 'X':
-                    arg = (parseInt(arg, 10) >>> 0).toString(16).toUpperCase()
-                    break
+            case 'b':
+                arg = parseInt(arg, 10).toString(2)
+                break
+            case 'c':
+                arg = String.fromCharCode(parseInt(arg, 10))
+                break
+            case 'd':
+            case 'i':
+                arg = parseInt(arg, 10)
+                break
+            case 'j':
+                arg = JSON.stringify(arg, null, ph.width ? parseInt(ph.width) : 0)
+                break
+            case 'e':
+                arg = ph.precision ? parseFloat(arg).toExponential(ph.precision) : parseFloat(arg).toExponential()
+                break
+            case 'f':
+                arg = ph.precision ? parseFloat(arg).toFixed(ph.precision) : parseFloat(arg)
+                break
+            case 'g':
+                arg = ph.precision ? String(Number(arg.toPrecision(ph.precision))) : parseFloat(arg)
+                break
+            case 'o':
+                arg = (parseInt(arg, 10) >>> 0).toString(8)
+                break
+            case 's':
+                arg = String(arg)
+                arg = (ph.precision ? arg.substring(0, ph.precision) : arg)
+                break
+            case 't':
+                arg = String(!!arg)
+                arg = (ph.precision ? arg.substring(0, ph.precision) : arg)
+                break
+            case 'T':
+                arg = Object.prototype.toString.call(arg).slice(8, -1).toLowerCase()
+                arg = (ph.precision ? arg.substring(0, ph.precision) : arg)
+                break
+            case 'u':
+                arg = parseInt(arg, 10) >>> 0
+                break
+            case 'v':
+                arg = arg.valueOf()
+                arg = (ph.precision ? arg.substring(0, ph.precision) : arg)
+                break
+            case 'x':
+                arg = (parseInt(arg, 10) >>> 0).toString(16)
+                break
+            case 'X':
+                arg = (parseInt(arg, 10) >>> 0).toString(16).toUpperCase()
+                break
             }
             if (re.json.test(ph.type)) {
                 output += arg
@@ -182,7 +184,7 @@ function sprintf_parse(fmt: string) {
         else if ((match = re.placeholder.exec(_fmt)) !== null) {
             if (match[2]) {
                 arg_names |= 1
-                var field_list = [], replacement_field = match[2], field_match = []
+                var field_list = [], replacement_field = match[2], field_match: RegExpExecArray|null
                 if ((field_match = re.key.exec(replacement_field)) !== null) {
                     field_list.push(field_match[1])
                     while ((replacement_field = replacement_field.substring(field_match[0].length)) !== '') {
@@ -200,7 +202,7 @@ function sprintf_parse(fmt: string) {
                 else {
                     throw new SyntaxError('[sprintf] failed to parse named argument key')
                 }
-                match[2] = field_list
+                match[2] = String(field_list)
             }
             else {
                 arg_names |= 2
@@ -219,8 +221,8 @@ function sprintf_parse(fmt: string) {
                     align: match[5],
                     width: match[6],
                     precision: match[7],
-                    type: match[8]
-                }
+                    type: match[8],
+                },
             )
         }
         else {

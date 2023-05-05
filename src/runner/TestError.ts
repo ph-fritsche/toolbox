@@ -9,7 +9,7 @@ export class TestError extends BaseTestError {
         reason: string|Error,
         readonly test?: Test,
     ) {
-        const {message, cause = undefined, name = undefined, stack = undefined} = typeof reason === 'string'
+        const {message, cause = undefined, name = 'Error', stack = undefined} = typeof reason === 'string'
             ? {message: reason}
             : reason
         super({message, name, stack, cause})

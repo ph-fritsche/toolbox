@@ -18,9 +18,10 @@ export class HttpFileServer extends FileServer<HttpFileServerEventMap> {
         super(provider)
         this.listen(port, host)
     }
+    // eslint-disable-next-line @typescript-eslint/no-misused-promises
     readonly server = createServer(async (req, res) => {
         if (req.method === 'GET') {
-            const [subpath, line, char] = (req.url?.startsWith('/') ? req.url.substring(1) : '').split(':')
+            const [subpath] = (req.url?.startsWith('/') ? req.url.substring(1) : '').split(':')
             const file = subpath ? this.provider.getFile(subpath) : Promise.reject()
             await file.then(
                 ({content}) => {
@@ -81,7 +82,7 @@ export class HttpFileServer extends FileServer<HttpFileServerEventMap> {
         })
     }
 
-    close() {
-        this.server.close()
+    async close() {
+        return new Promise<void>((res, rej) => this.server.close(e => (e ? rej(e) : res())))
     }
 }

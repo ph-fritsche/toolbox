@@ -20,7 +20,7 @@ export async function serveToolboxRunner() {
     const s = await serveDir(dir)
     return {
         ...s,
-        url: `${s.url}runner/index.js`,
+        url: `${String(s.url)}runner/index.js`,
     }
 }
 
@@ -85,7 +85,7 @@ export function createProjectBuildProvider(
                 if (pending) {
                     return
                 }
-                callback()
+                void callback()
             })
         },
     }

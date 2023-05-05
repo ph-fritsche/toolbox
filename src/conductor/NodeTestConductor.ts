@@ -4,6 +4,9 @@ import { TestConductor } from './TestConductor'
 const selfUrl = import.meta.url
 const loaderUrl = new URL('./node/loader.js', selfUrl)
 const prepareUrl = new URL('./node/prepare.cjs', selfUrl)
+if (!import.meta.resolve) {
+    throw new Error('`import.meta.resolve` is required. Run with `--experimental-import-meta-resolve`!')
+}
 const nodeFetchUrl = await import.meta.resolve('node-fetch', selfUrl)
 
 export class NodeTestConductor extends TestConductor {
@@ -40,28 +43,27 @@ export class NodeTestConductor extends TestConductor {
 
         const promised = new Promise<typeof buffer & {
             code: number
-            signal?: NodeJS.Signals
+            signal: NodeJS.Signals | null
             toString(): string
-        }>((res, rej) => {
-            child.on('error', error => {
-                rej(error)
-            })
-            child.on('exit', (code, signal) => {
-                stdioClosed.then(() => {
-                    ;(code ? rej : res)({
-                        ...buffer,
-                        code,
-                        signal,
-                        toString() {
-                            return [buffer.out, buffer.err].filter(Boolean).join('\n') + '\n'
-                        }
+                }>((res, rej) => {
+                    child.on('error', error => {
+                        rej(error)
+                    })
+                    child.on('exit', (code, signal) => {
+                        void stdioClosed.then(() => {
+                            (code ? rej : res)({
+                                ...buffer,
+                                code: Number(code),
+                                signal,
+                                toString() {
+                                    return [buffer.out, buffer.err].filter(Boolean).join('\n') + '\n'
+                                },
+                            })
+                        })
                     })
                 })
-            })
-        })
 
-        let childCode = ''
-        child.stdin.end(childCode = `
+        const childCode = `
 import { setTestContext, TestGroup, TestRunner } from "${this.testRunnerModule}"
 import fetch from "${String(nodeFetchUrl)}"
 
@@ -88,7 +90,9 @@ const setTimeout = global.setTimeout
 
     exit()
 })()
-        `)
+        `
+
+        await new Promise<void>(r => child.stdin.end(childCode, r))
 
         await promised
     }

@@ -31,8 +31,8 @@ export class ChromeTestConductor extends TestConductor {
         const callbackId = makeId(6)
 
         const donePromise = new Promise((res, rej) => {
-            page.exposeFunction(`__${callbackId}-resolve`, res)
-            page.exposeFunction(`__${callbackId}-reject`, rej)
+            void page.exposeFunction(`__${callbackId}-resolve`, res)
+            void page.exposeFunction(`__${callbackId}-reject`, rej)
         })
 
         page.on('console', m => console.log(m.type(), m.text()))
@@ -66,7 +66,7 @@ await ((async () => {
 )
         `
 
-        page.setContent(`<html><head><script type="module">${childCode}</script>`)
+        await page.setContent(`<html><head><script type="module">${childCode}</script>`)
 
         await donePromise
     }

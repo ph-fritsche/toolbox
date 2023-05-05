@@ -5,12 +5,15 @@
     "exclude": [
     ],
     "compilerOptions": {
+        "noEmit": true,
         "outDir": "dist",
         "declaration": true,
         "target": "ES2022",
         "moduleResolution": "Node",
         "module": "ESNext",
         "allowSyntheticDefaultImports": true,
+        "strict": true,
+        "esModuleInterop": true,
         "lib": [
             "ESNext",
             "DOM",

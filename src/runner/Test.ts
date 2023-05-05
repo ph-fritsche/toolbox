@@ -13,7 +13,7 @@ export class Test extends BaseTest {
             parent: TestGroup
             callback: TestCallback
             timeout?: number
-        }
+        },
     ) {
         super(props)
         this.parent = props.parent

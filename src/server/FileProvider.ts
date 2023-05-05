@@ -20,10 +20,13 @@ export class FileProvider {
         if (!this.files.has(filePath)) {
             this.files.set(filePath, this.loadFile(filePath))
         }
-        return this.files.get(filePath)
+        return this.files.get(filePath) as Promise<File>
     }
 
-    protected loadFile(filePath: string): Promise<File> {
+    protected loadFile(
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        _filePath: string,
+    ): Promise<File> {
         throw undefined
     }
 }

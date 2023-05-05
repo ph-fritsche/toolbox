@@ -1,7 +1,7 @@
 export class Entity {
     readonly id: string
     constructor(
-        props: Partial<Entity> = {}
+        props: Partial<Entity> = {},
     ) {
         this.id = props.id ?? makeId(6)
     }

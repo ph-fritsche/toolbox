@@ -1,5 +1,5 @@
 import { Plugin, PreRenderedChunk } from 'rollup'
-import { isNodeJsBuiltin } from '../module'
+import { isBuiltin } from 'node:module'
 
 const __filename = import.meta.url.substring(5)
 
@@ -10,7 +10,7 @@ export function createNodeCorePaths(
     suffix = '.js',
 ) {
     return (id: string) => {
-        if (isNodeJsBuiltin(id)) {
+        if (isBuiltin(id)) {
             return prefix + getCoreModuleName(id).replaceAll('/', '-') + suffix
         }
     }
@@ -19,7 +19,7 @@ export function createNodeCorePaths(
 export function createNodeCoreEntryFileNames(
     prefix = '__node-',
     suffix = '.js',
-    fallback = '[name].js'
+    fallback = '[name].js',
 ) {
     return (chunkInfo: PreRenderedChunk) => {
         if (chunkInfo.facadeModuleId?.startsWith(nodeCorePrefix)) {
@@ -33,19 +33,18 @@ function getCoreModuleName(id: string) {
     return id.startsWith('node:') ? id.substring(5) : id
 }
 
-export type NodePolyfillPluginOptions = {
-}
+export type NodePolyfillPluginOptions = object
 
 export function createNodePolyfillPlugin(
-    {
-    }: NodePolyfillPluginOptions = {},
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    options: NodePolyfillPluginOptions = {},
     name = 'node-core-polyfill',
 ): Plugin {
     return {
         name,
 
         resolveId(source, importer) {
-            if (isNodeJsBuiltin(source)) {
+            if (isBuiltin(source)) {
                 const moduleName = source.startsWith('node:') ? source.substring(5) : source
 
                 if (importer?.startsWith(nodeCorePrefix)) {
@@ -71,19 +70,18 @@ export function createNodePolyfillPlugin(
     }
 }
 
-export type NodeReexportPluginOptions = {
-}
+export type NodeReexportPluginOptions = object
 
 export function createNodeReexportPlugin(
-    {
-    }: NodeReexportPluginOptions = {},
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    options: NodeReexportPluginOptions = {},
     name = 'node-core-reexport',
 ): Plugin {
     return {
         name,
 
         resolveId(source, importer) {
-            if (isNodeJsBuiltin(source)) {
+            if (isBuiltin(source)) {
                 const moduleName = source.startsWith('node:') ? source.substring(5) : source
 
                 if (importer?.startsWith(nodeCorePrefix)) {
@@ -98,6 +96,6 @@ export function createNodeReexportPlugin(
                 const moduleName = id.substring(nodeCorePrefix.length)
                 return `export {default} from "${moduleName}"\nexport * from "${moduleName}"\n`
             }
-        },        
+        },
     }
 }

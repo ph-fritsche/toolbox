@@ -23,7 +23,7 @@ export class TestGroup extends Entity {
         for (const c of this._children) {
             Object.defineProperty(c, 'parent', {
                 configurable: true,
-                get: () => this
+                get: () => this,
             })
         }
     }

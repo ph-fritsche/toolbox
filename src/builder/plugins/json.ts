@@ -18,7 +18,10 @@ export function createJsonPlugin(
             if (id.endsWith('.json')) {
                 return fs.readFile(id).then(
                     b => {
-                        this.getModuleInfo(id).meta[Json] = b
+                        const info = this.getModuleInfo(id)
+                        if (info) {
+                            info.meta[Json] = b
+                        }
 
                         return `export default ${String(b)}`
                     },
@@ -27,9 +30,9 @@ export function createJsonPlugin(
             }
         },
         renderChunk(code, chunk) {
-            if (chunk.fileName.endsWith('.json.js')) {
+            if (chunk.fileName.endsWith('.json.js') && chunk.facadeModuleId) {
                 const info = this.getModuleInfo(chunk.facadeModuleId)
-                if (info.meta[Json]) {
+                if (info?.meta[Json]) {
                     this.emitFile({
                         type: 'asset',
                         fileName: chunk.fileName.substring(0, chunk.fileName.length - 3),
@@ -38,6 +41,6 @@ export function createJsonPlugin(
                 }
             }
             return null
-        }
+        },
     }
 }

@@ -1,6 +1,6 @@
 export { EventEmitter } from './EventEmitter'
 
-export function makeEventTypeCheck<EventMap extends unknown>() {
+export function makeEventTypeCheck<EventMap>() {
     return function isEventType<K extends keyof EventMap>(
         event: EventMap[keyof EventMap] & { type: keyof EventMap },
         k: K,

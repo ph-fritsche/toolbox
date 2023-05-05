@@ -5,10 +5,15 @@ import { Test } from './Test'
 import { TestError } from './TestError'
 import { BeforeCallbackReturn, TestGroup } from './TestGroup'
 import { TestResult, TimeoutError } from './TestResult'
+import { CoverageMapData } from 'istanbul-lib-coverage'
 
 type RunnerMessageMap = ReporterMessageMap<TestGroup, TestResult, TestError>
 
 type fetchApi = typeof globalThis.fetch
+
+declare global {
+    var __coverage__: CoverageMapData|undefined
+}
 
 export class TestRunner {
     constructor(
@@ -35,43 +40,43 @@ export class TestRunner {
         await this.report('complete', {
             runId,
             groupId: group.id,
-            coverage: globalThis.__coverage__,
+            coverage: globalThis.__coverage__ ?? {},
         })
     }
 
-    protected async *execTestsIterator(
+    protected async *execTestsIterator<T extends TestGroup|Test>(
         runId: string,
-        iterator: FilterIterator<TestGroup|Test>,
+        iterator: FilterIterator<T>,
     ): AsyncGenerator<TestResult> {
         if ('children' in iterator.element) {
             let beforeAllResult: Awaited<ReturnType<TestGroup['runBefore']>>|undefined
             if (iterator.include) {
                 beforeAllResult = await iterator.element.runBeforeAll()
-                this.reportErrors(runId, beforeAllResult.errors)
+                await this.reportErrors(runId, beforeAllResult.errors)
             }
 
             for (const i of iterator) {
                 yield* this.execTestsIterator(runId, i)
             }
 
-            if (iterator.include) {
+            if (beforeAllResult) {
                 const afterAllResult = await iterator.element.runAfterAll(beforeAllResult.after)
-                this.reportErrors(runId, afterAllResult.errors)
+                await this.reportErrors(runId, afterAllResult.errors)
             }
         } else if (iterator.include) {
             const ancestors = Array.from(new TreeIterator(iterator.element).getAncestors())
             const afterEach = new Map<TestGroup, BeforeCallbackReturn[]>()
             for (const p of ancestors.reverse()) {
                 const beforeEachResult = await p.runBeforeEach(iterator.element)
-                this.reportErrors(runId, beforeEachResult.errors)
+                await this.reportErrors(runId, beforeEachResult.errors)
                 afterEach.set(p, beforeEachResult.after)
             }
 
             yield await this.execTest(iterator.element)
 
             for (const p of ancestors) {
-                const afterEachResult = await p.runAfterEach(iterator.element, afterEach.get(p)!)
-                this.reportErrors(runId, afterEachResult.errors)
+                const afterEachResult = await p.runAfterEach(iterator.element, afterEach.get(p) as BeforeCallbackReturn[])
+                await this.reportErrors(runId, afterEachResult.errors)
             }
         } else {
             yield new TestResult(iterator.element)
@@ -81,13 +86,13 @@ export class TestRunner {
     protected async execTest(test: Test) {
         const timeout = test.timeout ?? 5000
         const t0 = performance.now()
-        let timer: number
+        let timer: number|undefined
         let reject: () => void = () => void 0
         try {
             await Promise.race([
                 new Promise((res, rej) => {
                     timer = this.setTimeout(() => rej(
-                        new TimeoutError(`Test "${test.title}" timed out after ${timeout}ms.`)
+                        new TimeoutError(`Test "${test.title}" timed out after ${timeout}ms.`),
                     ), timeout)
                 }),
                 test.callback.call(test),
@@ -96,7 +101,10 @@ export class TestRunner {
             return new TestResult(test, {duration})
         } catch (error) {
             const duration = performance.now() - t0
-            return new TestResult(test, {duration, error})
+            return new TestResult(test, {
+                duration,
+                error: error as Error,
+            })
         } finally {
             reject()
             clearTimeout(timer)
@@ -112,19 +120,17 @@ export class TestRunner {
             body: JSON.stringify({
                 type,
                 ...data,
-            })
-        })        
+            }),
+        })
     }
 
     protected async reportErrors(runId: string, errors: TestError[]) {
-        errors.forEach(e => {
-            this.report('error', {
-                runId,
-                groupId: e.context.id,
-                testId: e.test?.id,
-                hook: e.hook,
-                error: e,
-            })
-        })
+        return Promise.allSettled(errors.map(e => this.report('error', {
+            runId,
+            groupId: e.context.id,
+            testId: e.test?.id,
+            hook: e.hook,
+            error: e,
+        })))
     }
 }

@@ -19,10 +19,10 @@ describe('build fixture src', () => {
         tsConfigFile: './tsconfig.json',
     })
 
-    afterAll(() => {
-        buildProvider.close()
-        fileServer.close()
-    })
+    afterAll(() => Promise.allSettled([
+        buildProvider.close(),
+        fileServer.close(),
+    ]))
 
     test('provide transpiled code', async () => {
         await new Promise<void>(r => onBuildDone(async () => r()))
@@ -34,7 +34,7 @@ describe('build fixture src', () => {
     })
 
     test('serve code', async () => {
-        const f = `${await fileServer.url}test/_fixtures/src/typescript.js`
+        const f = `${String(await fileServer.url)}test/_fixtures/src/typescript.js`
 
         const response = await fetch(f)
         expect(response).toHaveProperty('status', 200)
@@ -52,7 +52,7 @@ describe('build fixture src', () => {
     test('serve instrumented code', async () => {
         const f = `${fileProvider.origin}/test/_fixtures/src/typescript.ts`
         expect(globalThis.__coverage__).toBeInstanceOf(Object)
-        expect(globalThis.__coverage__[f]).toBeInstanceOf(Object)
+        expect(globalThis.__coverage__?.[f]).toBeInstanceOf(Object)
 
         const coverageMap = IstanbulLibCoverage.createCoverageMap(globalThis.__coverage__)
         const sourceStore = IstanbulLibSourceMap.createSourceMapStore({})
@@ -61,7 +61,7 @@ describe('build fixture src', () => {
             coverageMap: coverageRemap,
             dir: fileProvider.origin,
             defaultSummarizer: 'nested',
-            sourceFinder: sourceStore.sourceFinder,
+            sourceFinder: s => sourceStore.sourceFinder(s),
         })
 
         expect(coverageRemap.fileCoverageFor(f).getUncoveredLines()).toEqual([
@@ -87,7 +87,7 @@ function getTextReport(
     IstanbulFileWriter.startCapture()
     IstanbulReports.create('text').execute(context)
     IstanbulFileWriter.stopCapture()
-    const report = IstanbulFileWriter.getOutput()
+    const report: string = IstanbulFileWriter.getOutput()
     IstanbulFileWriter.resetOutput()
     return report
 }

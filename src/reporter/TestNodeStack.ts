@@ -52,12 +52,12 @@ export class TestNodeStack<T extends TestGroup | Test = TestGroup | Test> {
     getErrors() {
         const errorMap = new Map<string, [TestRun, TestError][]>()
         this.instances.forEach((instance, run) => {
-            if (run.errors.has(instance.id)) {
-                run.errors.get(instance.id).forEach(error => {
+            if (run?.errors.has(instance.id)) {
+                (run.errors.get(instance.id) as TestError[]).forEach(error => {
                     if (!errorMap.has(error.message)) {
                         errorMap.set(error.message, [])
                     }
-                    errorMap.get(error.message).push([run, error])
+                    (errorMap.get(error.message) as Array<[TestRun, TestError]>).push([run, error])
                 })
             }
         })
@@ -67,12 +67,12 @@ export class TestNodeStack<T extends TestGroup | Test = TestGroup | Test> {
     getResults() {
         const resultMap = new Map<TestResult['status'], [TestRun, TestResult][]>()
         this.instances.forEach((instance, run) => {
-            if (run.results.has(instance.id)) {
-                const result = run.results.get(instance.id)
+            if (run?.results.has(instance.id)) {
+                const result = run.results.get(instance.id) as TestResult
                 if (!resultMap.has(result.status)) {
                     resultMap.set(result.status, [])
                 }
-                resultMap.get(result.status).push([run, result])
+                (resultMap.get(result.status) as Array<[TestRun, TestResult]>).push([run, result])
             }
         })
         return resultMap

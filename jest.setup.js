@@ -1,3 +1,5 @@
+/* eslint-disable no-undef */
+
 import stripAnsi from 'jest-snapshot-serializer-ansi'
 
 expect.addSnapshotSerializer({

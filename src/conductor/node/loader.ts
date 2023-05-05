@@ -16,38 +16,40 @@ type PromiseOrReturn<T> = Promise<T> | T
 /**
  * @see https://nodejs.org/api/esm.html#resolvespecifier-context-nextresolve
  */
-type NodeResolver = (
-    specifier: string,
-    context: NodeResolveContext,
-    nextResolve: (specifier: string, context: NodeResolveContext) => any,
-) => PromiseOrReturn<{
+type NodeResolveContext = {
+    conditions: string[]
+    importAssertions: object
+    parentURL?: string
+}
+type NodeResolverResult = PromiseOrReturn<{
     format?: string|null
     shortCircuit?: boolean
     url: string
 }>
-type NodeResolveContext = {
-    conditions: string[]
-    importAssertions: {}
-    parentURL?: string
-}
+type NodeResolver = (
+    specifier: string,
+    context: NodeResolveContext,
+    nextResolve: (specifier: string, context: NodeResolveContext) => NodeResolverResult,
+) => NodeResolverResult
 
 /**
  * @see https://nodejs.org/api/esm.html#loadurl-context-nextload
  */
-type NodeLoader = (
-    url: string,
-    context: NodeLoaderContext,
-    nextLoad: (url: string, context: NodeLoaderContext) => any,
-) => PromiseOrReturn<{
+type NodeLoaderContext = {
+    conditions: string[]
+    importAssertions: object
+    format?: string | null
+}
+type NodeLoaderResult = PromiseOrReturn<{
     format: string
     shortCircuit?: boolean
     source: string|ArrayBuffer|TypedArray
 }>
-type NodeLoaderContext = {
-    conditions: string[]
-    importAssertions: {}
-    format?: string | null
-}
+type NodeLoader = (
+    url: string,
+    context: NodeLoaderContext,
+    nextLoad: (url: string, context: NodeLoaderContext) => NodeLoaderResult,
+) => NodeLoaderResult
 
 export const resolve: NodeResolver = async (specifier, context, nextResolve) => {
     const id = specifier.startsWith('node:') ? specifier.substring(5) : specifier

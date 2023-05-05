@@ -2,9 +2,8 @@ import { stat } from 'fs/promises'
 import path from 'path'
 import { Plugin } from 'rollup'
 import ts, { CompilerOptions } from 'typescript'
-import { resolve as importResolve } from 'import-meta-resolve'
 import requireResolveAsync from 'resolve'
-import { isNodeJsBuiltin } from '../module'
+import { isBuiltin } from 'node:module'
 
 function requireResolve(moduleName: string, importer: string) {
     return new Promise<string|undefined>((res, rej) => {
@@ -116,7 +115,7 @@ export function createNodeResolvePlugin(
 ): Plugin {
     return{
         name,
-        
+
         async resolveId(moduleName, importer) {
             if (moduleName.startsWith('\0')
                 || moduleName.includes(':')
@@ -126,7 +125,7 @@ export function createNodeResolvePlugin(
                 return
             }
 
-            if (isNodeJsBuiltin(moduleName)) {
+            if (isBuiltin(moduleName)) {
                 return
             }
 
@@ -137,7 +136,10 @@ export function createNodeResolvePlugin(
             }
 
             if (!resolved) {
-                resolved = await importResolve(moduleName, `file://${importer}`)
+                if (!import.meta.resolve) {
+                    throw new Error('`import.meta.resolve` is required. Run with `--experimental-import-meta-resolve`!')
+                }
+                resolved = await import.meta.resolve(moduleName, `file://${importer}`)
                     .catch(() => undefined)
 
                 if (resolved?.startsWith('file://')) {
@@ -170,9 +172,9 @@ export function createNodeCoreResolvePlugin(
         name,
 
         async resolveId(moduleName) {
-            if (isNodeJsBuiltin(moduleName)) {
+            if (isBuiltin(moduleName)) {
                 return moduleName
             }
-        }
+        },
     }
 }

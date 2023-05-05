@@ -1,8 +1,7 @@
 import { EventEmitter } from '../event'
 import { FileProvider } from './FileProvider'
 
-export type FileServerEventMap = {
-}
+export type FileServerEventMap = unknown
 
 export abstract class FileServer<EventMap extends FileServerEventMap = FileServerEventMap> {
     constructor(
@@ -17,5 +16,7 @@ export abstract class FileServer<EventMap extends FileServerEventMap = FileServe
 
     readonly emitter = new EventEmitter<EventMap>()
 
-    close() {}
+    async close() {
+        // close pointers
+    }
 }

@@ -1,8 +1,8 @@
 import { Stats } from 'fs'
 import path from 'path'
-import { OutputOptions, Plugin, PreRenderedChunk, rollup, RollupBuild, RollupCache, RollupError, RollupOptions, RollupOutput } from 'rollup'
+import { OutputOptions, Plugin, PreRenderedChunk, rollup, RollupBuild, RollupCache, RollupError, RollupOutput } from 'rollup'
 import { EventEmitter } from '../event'
-import { isNodeJsBuiltin } from './module'
+import { isBuiltin } from 'node:module'
 
 type InputFilesMap = Map<string, Stats | undefined>
 export type OutputFilesMap = Map<string, {
@@ -91,7 +91,7 @@ export class Builder {
         }
         this.isExternal = isExternal ?? ((source, importer, isResolved) =>
             this.outputOptions.globals && source in this.outputOptions.globals
-            || isResolved && (source.includes('/node_modules/') || isNodeJsBuiltin(source))
+            || isResolved && (source.includes('/node_modules/') || isBuiltin(source))
         )
     }
     readonly id: string
@@ -133,7 +133,7 @@ export class Builder {
     }
     private promiseBuild() {
         const buildId = this.nextBuildId
-        const build = new Promise<RollupBuild>((res, rej) => {
+        const build = new Promise<RollupBuild|undefined>((res, rej) => {
             this.emitter.once('start', event => {
                 this.assertBuildId(event, buildId)
                 event.build.then(b => res(b), r => rej(r))
@@ -161,7 +161,7 @@ export class Builder {
     }
     debounceBuild() {
         clearTimeout(this.debounceT)
-        
+
         const {buildId, build} = this.promiseBuild()
 
         this.debounceT = setTimeout(() => this.triggerBuild(buildId), 50)
@@ -176,7 +176,7 @@ export class Builder {
         if (this.pendingBuild || this.nextBuildId !== buildId) {
             return
         }
-        
+
         if (this.currentBuild) {
             this.pendingBuild = new Promise((res, rej) => {
                 this.emitter.once('done', currentDone => {
@@ -204,7 +204,7 @@ export class Builder {
                 external: (source, importer, isResolved) => {
                     if (this.isExternal(source, importer, isResolved)) {
                         if (source.startsWith('.')) {
-                            throw new Error(`Relative external "${source}" imported by "${importer}" in builder "${this.id}".`)
+                            throw new Error(`Relative external "${source}" imported by "${String(importer)}" in builder "${this.id}".`)
                         }
                         this._externals.add(source)
                         return true
@@ -237,14 +237,14 @@ export class Builder {
                             imports.push(id)
                         }
                     }
-    
+
                     this.emitter.dispatch('externals', {
                         buildId,
                         externals,
                         imports,
                         globals,
                     })
-    
+
                     await b.generate(this.outputOptions).then(o => {
                         this.outputFiles.clear()
                         setOutputFiles(this.outputFiles, o)
@@ -265,7 +265,7 @@ export class Builder {
                     buildId,
                     error,
                 })
-            }
+            },
         ).finally(() => {
             this.currentBuild = undefined
             if (this.promisedBuildId === buildId) {
@@ -301,11 +301,11 @@ function setOutputFiles(
             map.set(f.fileName, {
                 moduleId: f.facadeModuleId,
                 isEntry: f.isEntry,
-                content: `${f.code}\n//# sourceMappingURL=${f.map?.toUrl()}`,
+                content: `${f.code}\n//# sourceMappingURL=${String(f.map?.toUrl())}`,
             })
         } else {
             map.set(f.fileName, {
-                content: f.source
+                content: f.source,
             })
         }
     }

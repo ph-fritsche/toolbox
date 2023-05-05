@@ -6,7 +6,7 @@ type TestGroupDeclare<Args extends unknown[] = []> = (this: TestGroup, ...args: 
 
 export type TestContext = ReturnType<typeof setTestContext>
 
-export function setTestContext(on: {}, context: TestGroup) {
+export function setTestContext(on: object, context: TestGroup) {
     const describe = (
         title: string,
         declare: TestGroupDeclare,
@@ -26,11 +26,11 @@ export function setTestContext(on: {}, context: TestGroup) {
         declare: TestGroupDeclare<Args extends (unknown[] | readonly unknown[]) ? [...Args] : [Args]>,
     ) => {
         for (const args of cases) {
-            const argsArray = Array.isArray(args) ? args : [args]
+            const argsArray = (Array.isArray(args) ? args : [args]) as Args extends (unknown[] | readonly unknown[]) ? [...Args] : [Args]
             describe(
                 vsprintf(title, argsArray),
                 function(this: TestGroup) {
-                    return declare.apply(this, argsArray)
+                    declare.apply(this, argsArray)
                 },
             )
         }
@@ -53,7 +53,7 @@ export function setTestContext(on: {}, context: TestGroup) {
         timeout?: number,
     ) => {
         for (const args of cases) {
-            const argsArray = Array.isArray(args) ? args : [args]
+            const argsArray = (Array.isArray(args) ? args : [args]) as (Args extends (unknown[] | readonly unknown[]) ? [...Args] : [Args])
             context.addChild(new Test({
                 title: vsprintf(title, argsArray),
                 parent: context,

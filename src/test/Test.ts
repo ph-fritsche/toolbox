@@ -16,7 +16,8 @@ export class Test extends Entity {
     }
 
     ancestors() {
-        let p = []
+        let p: TestGroup[] = []
+        // eslint-disable-next-line @typescript-eslint/no-this-alias
         let n: TestGroup|Test = this
         while(n.parent) {
             p.push(n.parent)

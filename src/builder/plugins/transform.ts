@@ -10,7 +10,7 @@ export function createTransformPlugin(
         name,
         async transform(code, id) {
             if (!/\.[jt]sx?(\?.*)?$/.test(id)
-                // || id.includes('/node_modules/')
+            // || id.includes('/node_modules/')
             ) {
                 return undefined
             }

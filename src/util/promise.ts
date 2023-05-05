@@ -1,6 +1,7 @@
+const unassigned = () => {throw new Error('Uninitialized')}
 export function promise<T>() {
-    let resolve: (value: T) => void
-    let reject: (reason: unknown) => void
+    let resolve: (value: T) => void = unassigned
+    let reject: (reason: unknown) => void = unassigned
     return {
         Promise: new Promise<T>((res, rej) => {
             resolve = res
