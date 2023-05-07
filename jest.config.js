@@ -10,7 +10,8 @@ export default {
         '<rootDir>/test/**/*.{js,jsx,ts,tsx}',
     ],
     testPathIgnorePatterns: [
-        '/_.*(?<!.test.[jt]sx?)$',
+        '/_.*(?<!\\.test\\.[jt]sx?)$',
+        '\\.d\\.ts$',
     ],
     transform: {
         '^.+\\.(t|j)sx?$': [
