@@ -4,7 +4,9 @@ export default {
     collectCoverageFrom: [
         'src/**/*.{js,jsx,ts,tsx}',
     ],
-    coveragePathIgnorePatterns: [],
+    coveragePathIgnorePatterns: [
+        '\\.d\\.ts$',
+    ],
     coverageProvider: 'v8',
     testMatch: [
         '<rootDir>/test/**/*.{js,jsx,ts,tsx}',
