@@ -2,9 +2,9 @@ import { TestGroup, TestResult, TestError } from '../test'
 import type { CoverageMapData } from 'istanbul-lib-coverage'
 
 export type ReporterMessageMap<
-    TGroup extends TestGroup,
-    TResult extends TestResult,
-    TError extends TestError,
+    TGroup extends TestGroup = TestGroup,
+    TResult extends TestResult = TestResult,
+    TError extends TestError = TestError,
 > = {
     schedule: {
         runId: string

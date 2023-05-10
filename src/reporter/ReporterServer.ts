@@ -41,7 +41,13 @@ export type ReporterEventMap = {
 
 export class ReporterServer {
     constructor() {
-        this.http.listen(0, '127.0.0.1')
+        this.url = new Promise((res, rej) => this.http.listen(0, '127.0.0.1', () => {
+            try {
+                res(this.getUrl())
+            } catch(e) {
+                rej(e)
+            }
+        }))
     }
 
     protected readonly fileServers = new Map<string, FileServer>()
@@ -146,8 +152,9 @@ export class ReporterServer {
             res.end()
         }
     })
+    readonly url: Promise<URL>
 
-    get url() {
+    private getUrl() {
         const addr = this.http.address()
         if (!addr) {
             throw new Error('Reporter server is unavailable.')
@@ -158,7 +165,7 @@ export class ReporterServer {
     }
 
     close() {
-        this.http.close()
+        return new Promise<void>((res, rej) => this.http.close((e) => e ? rej(e) : res()))
     }
 
     async registerFileServer(server: FileServer) {
