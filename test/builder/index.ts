@@ -19,10 +19,12 @@ describe('build fixture src', () => {
         tsConfigFile: './tsconfig.json',
     })
 
-    afterAll(() => Promise.allSettled([
-        buildProvider.close(),
-        fileServer.close(),
-    ]))
+    afterAll(async () => {
+        await Promise.allSettled([
+            buildProvider.close(),
+            fileServer.close(),
+        ])
+    })
 
     test('provide transpiled code', async () => {
         await new Promise<void>(r => onBuildDone(async () => r()))
@@ -70,14 +72,13 @@ describe('build fixture src', () => {
         ])
 
         expect(getTextReport(context)).toMatchInlineSnapshot(`
----------------|---------|----------|---------|---------|-------------------
-File           | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s 
----------------|---------|----------|---------|---------|-------------------
-All files      |      50 |       50 |      50 |      50 |                   
- typescript.ts |      50 |       50 |      50 |      50 | 5,12              
----------------|---------|----------|---------|---------|-------------------
-
-`)
+          ---------------|---------|----------|---------|---------|-------------------
+          File           | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s 
+          ---------------|---------|----------|---------|---------|-------------------
+          All files      |      50 |       50 |      50 |      50 |                   
+           typescript.ts |      50 |       50 |      50 |      50 | 5,12              
+          ---------------|---------|----------|---------|---------|-------------------
+        `)
     })
 })
 

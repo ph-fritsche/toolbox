@@ -4,7 +4,7 @@ import { TestGroup as ReporterTestGroup } from '#src/reporter/TestGroup'
 import { TestRun } from '#src/reporter/TestRun'
 import { ReporterMessageMap } from '#src/reporter/ReporterMessage'
 import * as Entity from '#src/test'
-import { fn } from 'jest-mock'
+import { vi } from 'vitest'
 import fetch from 'node-fetch'
 import { SourceMapGenerator } from 'source-map'
 import { FileProvider, HttpFileServer } from '#src/server'
@@ -16,7 +16,7 @@ function setupReporterServer<K extends keyof ReporterEventMap>(
     const reporter = new ReporterServer()
     const {run} = TestRun.create(new DummyConductor(reporter, 'http://localhost/dummy'))
     reporter.testRuns.set(run.id, run)
-    const listener = fn<(e: ReporterEventMap[K]) => void>()
+    const listener = vi.fn<[ReporterEventMap[K]], void>()
     const sendReport = async (
         message: K extends keyof ReporterMessageMap ? ReporterMessageMap[K] : never,
     ) => fetch(await reporter.url, {
@@ -176,8 +176,11 @@ test('receive `error`', async () => {
         generated: {line: 20, column: 30},
         original: {line: 1, column: 2},
     })
+    // A string with `//# sourceMappingURL=data:application/json` let's vitest fail with a SyntaxError
+    const content0 = 'foo bar\n\n//# sourceMappingURL=data:'
+    const content1 = 'application/json;charset=utf-8;base64,' + Buffer.from(String(sourceMap)).toString('base64')
     fileServer.provider.files.set('some/file.js', Promise.resolve({
-        content: `foo bar\n\n//# sourceMappingURL=data:application/json;charset=utf-8;base64,${Buffer.from(String(sourceMap)).toString('base64')}`,
+        content: content0 + content1,
     }))
     await reporter.registerFileServer(fileServer)
     const fileServerUrl = String(await fileServer.url)
@@ -213,12 +216,12 @@ test('receive `error`', async () => {
         }),
     })
     expect(listener.mock.calls[0][0].error.stack).toMatchInlineSnapshot(`
-Error: some error
-    at some.function (/some/local/path/some/file.ts:50:60)
-    at other.function (/some/local/path/some/file.ts:1:2)
-    at unmapped.function (/some/local/path/some/file.js:200:300)
-    at unmapped.location (http://example.com/some/file.js:5:10)
-`)
+      Error: some error
+          at some.function (/some/local/path/some/file.ts:50:60)
+          at other.function (/some/local/path/some/file.ts:1:2)
+          at unmapped.function (/some/local/path/some/file.js:200:300)
+          at unmapped.location (http://example.com/some/file.js:5:10)
+    `)
 })
 
 test('receive `complete`', async () => {
