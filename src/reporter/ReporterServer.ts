@@ -165,7 +165,11 @@ export class ReporterServer {
     }
 
     close() {
-        return new Promise<void>((res, rej) => this.http.close((e) => e ? rej(e) : res()))
+        return this.url
+            .then(
+                () => new Promise<void>((res, rej) => this.http.close((e) => e ? rej(e) : res())),
+                (): void => void 0,
+            )
     }
 
     async registerFileServer(server: FileServer) {

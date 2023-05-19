@@ -8,12 +8,7 @@ import { fn } from 'jest-mock'
 import fetch from 'node-fetch'
 import { SourceMapGenerator } from 'source-map'
 import { FileProvider, HttpFileServer } from '#src/server'
-
-const after = new Set<() => Promise<void>|void>()
-afterEach(() => Promise.allSettled(Array.from(after.values()).map(async f => {
-    await f()
-    after.delete(f)
-})))
+import { afterThis } from '#test/_util'
 
 function setupReporterServer<K extends keyof ReporterEventMap>(
     listen: K,
@@ -33,8 +28,8 @@ function setupReporterServer<K extends keyof ReporterEventMap>(
     })
     const fileServer = new HttpFileServer(new FileProvider('/some/local/path'))
 
-    after.add(() => reporter.close())
-    after.add(() => fileServer.close())
+    afterThis(() => reporter.close())
+    afterThis(() => fileServer.close())
 
     reporter.emitter.addListener(listen, listener)
 

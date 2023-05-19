@@ -82,7 +82,11 @@ export class HttpFileServer extends FileServer<HttpFileServerEventMap> {
         })
     }
 
-    async close() {
-        return new Promise<void>((res, rej) => this.server.close(e => (e ? rej(e) : res())))
+    close() {
+        return this.url
+            .then(
+                () => new Promise<void>((res, rej) => this.server.close(e => (e ? rej(e) : res()))),
+                (): void => void 0,
+            )
     }
 }

@@ -23,6 +23,7 @@ export default {
                     paths: {
                         '#src': ['./src'],
                         '#src/*': ['./src/*'],
+                        '#test/*': ['./test/*'],
                     },
                     target: 'es2021',
                 },
