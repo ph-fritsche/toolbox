@@ -58,7 +58,7 @@ await ((async () => {
 
     await execModule(${JSON.stringify(testFile)})
 
-    const runner = new TestRunner(${JSON.stringify(await this.reporterServer.url)}, fetch, setTimeout)
+    const runner = new TestRunner(${JSON.stringify(await this.reporterServer.url)}, fetch, setTimeout, ${JSON.stringify(this.coverageVar)})
     await runner.run(${JSON.stringify(runId)}, suite)
 })()).then(
     r => window['__${callbackId}-resolve'](String(r)),

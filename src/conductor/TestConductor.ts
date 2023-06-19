@@ -17,6 +17,7 @@ export abstract class TestConductor extends Entity {
         public readonly testRunnerModule: string,
         title?: string,
         setupFiles: ServedFiles[] = [],
+        public readonly coverageVar: string = '__coverage__',
     ) {
         super()
         this.title = title ?? this.constructor.name
@@ -49,7 +50,7 @@ export abstract class TestConductor extends Entity {
             const base = this.resolveBasePath(f)
             return f.paths.map(p => ({
                 id: makeId(6),
-                name: p,
+                name: p.split('?')[0],
                 url: `${base}${p}`,
             }))
         }).flat(1)

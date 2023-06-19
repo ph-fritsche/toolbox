@@ -223,6 +223,9 @@ export class ReporterServer {
                 if (url.startsWith(serverUrl) && (serverUrl.endsWith('/') || url[serverUrl.length] === '/')) {
                     const subpath = trimStart(url.substring(serverUrl.length), '/')
                     let subPathAndPos = `${subpath}:${line}:${column}`
+
+                    // TODO: handle errors when resolving code positions
+
                     const file = await server.provider.getFile(subpath)
                     const mapMatch = String(file.content).match(/\n\/\/# sourceMappingURL=data:application\/json;charset=utf-8;base64,(?<encodedMap>[0-9a-zA-Z+/]+)\s*$/)
                     if (mapMatch?.groups) {

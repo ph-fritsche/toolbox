@@ -1,7 +1,6 @@
 import { TestContext } from '#src'
 import { setTestContext, TestGroup } from '#src/runner'
 import { Test } from '#src/runner/Test'
-import { vi } from 'vitest'
 
 function setupTestContext() {
     const context = {} as TestContext
@@ -45,7 +44,7 @@ test('declare `describe`', () => {
 
 test('declare `test.each`', () => {
     const {context, main} = setupTestContext()
-    const callback = vi.fn()
+    const callback = mock.fn<() => void>()
 
     context.test.each(['a', 'b', 'c'])('some test: %s', callback)
 
@@ -60,7 +59,7 @@ test('declare `test.each`', () => {
 
 test('declare `describe.each`', () => {
     const {context, main} = setupTestContext()
-    const callback = vi.fn()
+    const callback = mock.fn<() => void>()
 
     context.describe.each([['a', 'b'], ['c', 'd']])('some group: %s %s', (x, y) => {
         context.test(`${x},${y}`, callback)

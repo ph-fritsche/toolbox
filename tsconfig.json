@@ -1,6 +1,7 @@
 {
     "include": [
         "src",
+        "util",
     ],
     "exclude": [
     ],
@@ -14,6 +15,7 @@
         "allowSyntheticDefaultImports": true,
         "strict": true,
         "esModuleInterop": true,
+        "allowJs": true,
         "lib": [
             "ESNext",
             "DOM",

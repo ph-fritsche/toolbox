@@ -1,6 +1,6 @@
 import path from 'node:path'
 import fetch from 'node-fetch'
-import IstanbulLibCoverage from 'istanbul-lib-coverage'
+import IstanbulLibCoverage, {CoverageMapData} from 'istanbul-lib-coverage'
 import IstanbulLibReport from 'istanbul-lib-report'
 import IstanbulFileWriter from 'istanbul-lib-report/lib/file-writer.js'
 import IstanbulReports from 'istanbul-reports'
@@ -53,10 +53,11 @@ describe('build fixture src', () => {
 
     test('serve instrumented code', async () => {
         const f = `${fileProvider.origin}/test/_fixtures/src/typescript.ts`
-        expect(globalThis.__coverage__).toBeInstanceOf(Object)
-        expect(globalThis.__coverage__?.[f]).toBeInstanceOf(Object)
+        const cov = (globalThis as {__coverage__?: CoverageMapData}).__coverage__
+        expect(cov).toBeInstanceOf(Object)
+        expect(cov?.[f]).toBeInstanceOf(Object)
 
-        const coverageMap = IstanbulLibCoverage.createCoverageMap(globalThis.__coverage__)
+        const coverageMap = IstanbulLibCoverage.createCoverageMap(cov)
         const sourceStore = IstanbulLibSourceMap.createSourceMapStore({})
         const coverageRemap = await sourceStore.transformCoverage(coverageMap)
         const context = IstanbulLibReport.createContext({
@@ -71,14 +72,14 @@ describe('build fixture src', () => {
             '12',
         ])
 
-        expect(getTextReport(context)).toMatchInlineSnapshot(`
-          ---------------|---------|----------|---------|---------|-------------------
-          File           | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s 
-          ---------------|---------|----------|---------|---------|-------------------
-          All files      |      50 |       50 |      50 |      50 |                   
-           typescript.ts |      50 |       50 |      50 |      50 | 5,12              
-          ---------------|---------|----------|---------|---------|-------------------
-        `)
+        expect(getTextReport(context)).toEqual(`
+---------------|---------|----------|---------|---------|-------------------
+File           | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s 
+---------------|---------|----------|---------|---------|-------------------
+All files      |      50 |       50 |      50 |      50 |                   
+ typescript.ts |      50 |       50 |      50 |      50 | 5,12              
+---------------|---------|----------|---------|---------|-------------------
+        `.trim())
     })
 })
 
@@ -90,5 +91,5 @@ function getTextReport(
     IstanbulFileWriter.stopCapture()
     const report: string = IstanbulFileWriter.getOutput()
     IstanbulFileWriter.resetOutput()
-    return report
+    return report.trim()
 }

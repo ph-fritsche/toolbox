@@ -1,17 +1,22 @@
-import { spawn } from 'child_process'
+import { spawn } from 'node:child_process'
 import { TestConductor } from './TestConductor'
+import path from 'node:path'
+import url from 'node:url'
 
-const selfUrl = import.meta.url
-const loaderUrl = new URL('./node/loader.js', selfUrl)
-const prepareUrl = new URL('./node/prepare.cjs', selfUrl)
 if (!import.meta.resolve) {
     throw new Error('`import.meta.resolve` is required. Run with `--experimental-import-meta-resolve`!')
 }
-const nodeFetchUrl = await import.meta.resolve('node-fetch', selfUrl)
+const nodeFetchUrl = await import.meta.resolve('node-fetch', import.meta.url)
+
+const loaderPath = path.dirname(url.fileURLToPath(import.meta.url)) + '/node'
 
 export class NodeTestConductor extends TestConductor {
     static readonly supportedFilesProtocols: string[] = ['file:', 'http:']
     static readonly includeFilesProtocol: boolean = false
+
+    public loaders = [
+        `${loaderPath}/loader-netlocal.js`,
+    ]
 
     protected async runTestSuite(
         runId: string,
@@ -19,13 +24,22 @@ export class NodeTestConductor extends TestConductor {
         id: string,
         name: string,
     ) {
+        const loaderArgs = ([] as string[]).concat(
+            ...this.loaders.map(l => ['--experimental-loader', l]),
+        )
         const child = spawn('node', [
             '--input-type=module',
             '--experimental-network-imports',
             '--experimental-import-meta-resolve',
-            '--experimental-loader', loaderUrl.pathname,
-            '--require', prepareUrl.pathname,
+            '--require', `${loaderPath}/experimental.cjs`,
+            // TODO: handle resolved source mappings in ReporterServer
+            // '--enable-source-maps',
+            ...loaderArgs,
         ], {
+            env: {
+                ...process.env,
+                INSTRUMENT_COVERAGE_VAR: this.coverageVar,
+            },
             stdio: ['pipe', 'pipe', 'pipe'],
         })
 
@@ -85,7 +99,7 @@ const setTimeout = global.setTimeout
 
     await execModule(${JSON.stringify(testFile)})
 
-    const runner = new TestRunner(${JSON.stringify(await this.reporterServer.url)}, fetch, setTimeout)
+    const runner = new TestRunner(${JSON.stringify(await this.reporterServer.url)}, fetch, setTimeout, ${JSON.stringify(this.coverageVar)})
     await runner.run(${JSON.stringify(runId)}, suite)
 
     exit()

@@ -1,7 +1,7 @@
 import { FsFileProvider } from '#src/server'
-import { dirname, resolve } from 'path'
+import path from 'path'
 
-const fixturesDir = resolve(dirname(import.meta.url).replace('file://', ''), '../_fixtures')
+const fixturesDir = path.resolve(process.env.PROJECT_DIR ?? '', 'test/_fixtures')
 test('provide files from file system', async () => {
     const provider = new FsFileProvider(fixturesDir)
 

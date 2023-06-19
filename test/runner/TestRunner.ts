@@ -1,6 +1,5 @@
 import { TestContext } from '#src'
 import { setTestContext, TestGroup, TestRunner } from '#src/runner'
-import { vi } from 'vitest'
 
 function setupTestRunner() {
     const context = {} as TestContext
@@ -30,7 +29,7 @@ function setupTestRunner() {
 
 test('run tests', async () => {
     const {context, main, runner, reports} = setupTestRunner()
-    const callback = vi.fn<[string], void>()
+    const callback = mock.fn<(x: unknown) => void>()
 
     context.test('some test', () => callback('a'))
     context.test('other test', () => callback('b'))
@@ -190,46 +189,44 @@ test('run hooks', async () => {
     await runner.run('runXYZ', main)
 
     // TODO: revert order of after* callbacks which are nested or returned from before*
-    expect(log).toMatchInlineSnapshot(`
-      [
-        beforeAll-A,
-        beforeAll-B,
-        beforeEach-A,
-        beforeEach-B,
-        TEST X,
-        afterEach-A,
-        afterEach-B,
-        return of beforeEach-A,
-        return of beforeEach-B,
-        beforeAll-C,
-        beforeEach-A,
-        beforeEach-B,
-        beforeEach-C,
-        TEST Y1,
-        afterEach-A,
-        afterEach-B,
-        return of beforeEach-A,
-        return of beforeEach-B,
-        afterEach-C,
-        return of beforeEach-C,
-        beforeEach-A,
-        beforeEach-B,
-        beforeEach-C,
-        TEST Y2,
-        afterEach-A,
-        afterEach-B,
-        return of beforeEach-A,
-        return of beforeEach-B,
-        afterEach-C,
-        return of beforeEach-C,
-        afterAll-C,
-        return of beforeAll-C,
-        afterAll-A,
-        afterAll-B,
-        return of beforeAll-A,
-        return of beforeAll-B,
-      ]
-    `)
+    expect(log).toEqual([
+        'beforeAll-A',
+        'beforeAll-B',
+        'beforeEach-A',
+        'beforeEach-B',
+        'TEST X',
+        'afterEach-A',
+        'afterEach-B',
+        'return of beforeEach-A',
+        'return of beforeEach-B',
+        'beforeAll-C',
+        'beforeEach-A',
+        'beforeEach-B',
+        'beforeEach-C',
+        'TEST Y1',
+        'afterEach-A',
+        'afterEach-B',
+        'return of beforeEach-A',
+        'return of beforeEach-B',
+        'afterEach-C',
+        'return of beforeEach-C',
+        'beforeEach-A',
+        'beforeEach-B',
+        'beforeEach-C',
+        'TEST Y2',
+        'afterEach-A',
+        'afterEach-B',
+        'return of beforeEach-A',
+        'return of beforeEach-B',
+        'afterEach-C',
+        'return of beforeEach-C',
+        'afterAll-C',
+        'return of beforeAll-C',
+        'afterAll-A',
+        'afterAll-B',
+        'return of beforeAll-A',
+        'return of beforeAll-B',
+    ])
 })
 
 test('report errors in hooks', async () => {

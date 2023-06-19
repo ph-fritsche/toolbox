@@ -11,15 +11,12 @@ type RunnerMessageMap = ReporterMessageMap<TestGroup, TestResult, TestError>
 
 type fetchApi = typeof globalThis.fetch
 
-declare global {
-    var __coverage__: CoverageMapData|undefined
-}
-
 export class TestRunner {
     constructor(
         public reporterUrl: URL|string,
         protected fetch: fetchApi,
         protected setTimeout: (callback: () => void, ms?: number) => number,
+        public coverageVar: string = '__coverage__',
     ) {}
 
     async run(
@@ -40,7 +37,7 @@ export class TestRunner {
         await this.report('complete', {
             runId,
             groupId: group.id,
-            coverage: globalThis.__coverage__ ?? {},
+            coverage: ((globalThis as {[k: string]: unknown})[this.coverageVar] as CoverageMapData|undefined) ?? {},
         })
     }
 
