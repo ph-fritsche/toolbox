@@ -1,7 +1,7 @@
 import { Stats } from 'fs'
 import path from 'path'
 import { OutputOptions, Plugin, PreRenderedChunk, rollup, RollupBuild, RollupCache, RollupError, RollupOutput } from 'rollup'
-import { EventEmitter } from '../event'
+import { EventEmitter, getEventDispatch } from '../event'
 import { isBuiltin } from 'node:module'
 
 type InputFilesMap = Map<string, Stats | undefined>
@@ -105,6 +105,7 @@ export class Builder {
     ) => boolean
 
     readonly emitter = new EventEmitter<BuildEventMap>()
+    protected readonly dispatch = getEventDispatch(this.emitter)
 
     readonly inputFiles: InputFilesMap = new Map()
 
@@ -140,7 +141,7 @@ export class Builder {
             })
         })
         if (this.promisedBuildId !== buildId) {
-            this.emitter.dispatch('activate', {
+            this.dispatch('activate', {
                 buildId,
                 inputFiles: this.inputFiles,
             })
@@ -213,7 +214,7 @@ export class Builder {
             })
             : Promise.resolve(undefined)
 
-        this.emitter.dispatch('start', {
+        this.dispatch('start', {
             buildId,
             build: this.currentBuild,
             inputFiles: this.inputFiles,
@@ -238,7 +239,7 @@ export class Builder {
                         }
                     }
 
-                    this.emitter.dispatch('externals', {
+                    this.dispatch('externals', {
                         buildId,
                         externals,
                         imports,
@@ -251,7 +252,7 @@ export class Builder {
                     })
                 }
 
-                this.emitter.dispatch('complete', {
+                this.dispatch('complete', {
                     buildId,
                     build: b,
                     inputFiles: this.inputFiles,
@@ -261,7 +262,7 @@ export class Builder {
                 await b?.close()
             },
             (error: RollupError) => {
-                this.emitter.dispatch('error', {
+                this.dispatch('error', {
                     buildId,
                     error,
                 })
@@ -271,7 +272,7 @@ export class Builder {
             if (this.promisedBuildId === buildId) {
                 this.promisedBuildId = undefined
             }
-            this.emitter.dispatch('done', {
+            this.dispatch('done', {
                 buildId,
             })
         })

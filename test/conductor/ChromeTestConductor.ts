@@ -1,14 +1,17 @@
-import { ChromeTestConductor } from '#src/conductor/ChromeTestConductor'
-import { ReporterServer } from '#src/reporter/ReporterServer'
 import { FileProvider } from '#src/server/FileProvider'
 import { HttpFileServer } from '#src/server/HttpFileServer'
 import { rollup } from 'rollup'
 import { afterThis } from '#test/_util'
 import { createNodeResolvePlugin, createTsResolvePlugin } from '#src/builder/plugins/resolve'
 import { createTransformPlugin } from '#src/builder/plugins/transform'
+import { HttpReporterServer } from '#src/conductor/HttpReporterServer'
+import { ErrorStackResolver } from '#src/conductor/ErrorStackResolver'
+import { createTestRun } from '#src/conductor/TestRun'
+import { ChromeTestConductor } from '#src/conductor/ChromeTestConductor'
+import { getTestFunction } from './_helper'
 
 let runnerModule = ''
-beforeAll(async () => {
+beforeEach(async () => {
     const build = await rollup({
         input: './src/runner/index.ts',
         plugins: [
@@ -22,42 +25,44 @@ beforeAll(async () => {
 })
 
 async function setupConductor() {
-    const reporter = new ReporterServer()
-    afterThis(() => reporter.close())
     const fileServer = new HttpFileServer(
         new FileProvider(import.meta.url, new Map([
             ['runner.js', Promise.resolve({content: runnerModule})],
         ])),
     )
+    const reporter = new HttpReporterServer(new ErrorStackResolver([{
+        url: String(await fileServer.url),
+        origin: fileServer.provider.origin,
+        getFile: p => fileServer.provider.getFile(p).then(f => String(f.content)),
+    }]))
+    const conductor = new ChromeTestConductor(`${String(await fileServer.url)}runner.js`)
+
     afterThis(() => fileServer.close())
-    const conductor = new ChromeTestConductor(reporter, `${String(await fileServer.url)}runner.js`)
+    afterThis(() => reporter.close())
     afterThis(() => conductor.close())
 
-    return {reporter, fileServer, conductor}
+    return {
+        reporter,
+        fileServer,
+        conductor,
+    }
 }
 
 test('conduct test', async () => {
-    const { conductor, fileServer, reporter } = await setupConductor()
+    const { conductor, fileServer } = await setupConductor()
     fileServer.provider.files.set('some/test.js', Promise.resolve({content: `
         test('some test', () => {});
         test('failing test', () => { throw new Error('some error') });
     `}))
+    const suiteUrl = String(await fileServer.url) + '/some/test.js'
 
-    const listener = mock.fn()
-    reporter.emitter.addListener('result', listener)
+    const run = createTestRun([conductor], [{url: suiteUrl, title: 'some test'}])
+    const suite = run.runs.get(conductor)!.suites.get(suiteUrl)!
 
-    const {run, exec} = conductor.createTestRun({
-        server: await fileServer.url,
-        paths: ['some/test.js'],
-    })
-    await exec()
+    await suite.exec()
 
-    expect(Array.from(run.results.values())).toEqual([
-        expect.objectContaining({
-            status: 'success',
-        }),
-        expect.objectContaining({
-            status: 'fail',
-        }),
-    ])
-})
+    expect(getTestFunction(suite, 1)).toHaveProperty('title', 'some test')
+    expect(getTestFunction(suite, 1).result.get()).toHaveProperty('type', 'success')
+    expect(getTestFunction(suite, 2)).toHaveProperty('title', 'failing test')
+    expect(getTestFunction(suite, 2).result.get()).toHaveProperty('type', 'fail')
+}, 30000)

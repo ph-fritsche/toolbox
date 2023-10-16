@@ -1,6 +1,6 @@
 import { Stats } from 'fs'
 import { FSWatcher, watch } from 'chokidar'
-import { EventEmitter } from '../event'
+import { EventEmitter, getEventDispatch } from '../event'
 import { Builder } from './Builder'
 
 type BuilderEntry = {
@@ -46,6 +46,7 @@ export class BuildProvider {
     readonly files = new Map<string, Stats|undefined>()
 
     readonly emitter = new EventEmitter<BuildProviderEventMap>()
+    protected readonly dispatch = getEventDispatch(this.emitter)
 
     private _builders = new Map<string, BuilderEntry>()
     connect(
@@ -61,7 +62,7 @@ export class BuildProvider {
             this.syncFileWithBuilders([entry], 'add', filepath, stats)
         })
         builder.emitter.addListener('done', () => {
-            this.emitter.dispatch('done', {
+            this.dispatch('done', {
                 builder,
                 pending: Array.from(this._builders.values()).some(b => !b.builder.idle),
             })

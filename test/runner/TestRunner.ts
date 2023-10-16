@@ -1,280 +1,275 @@
 import { TestContext } from '#src'
-import { setTestContext, TestGroup, TestRunner } from '#src/runner'
+import { Loader, Reporter, TestRunner } from '#src/runner'
 
-function setupTestRunner() {
+function setupTestRunner(
+    moduleMocks: {[k: string]: () => void|Promise<void>},
+) {
     const context = {} as TestContext
-    const main = new TestGroup({title: '#test'})
-    const reports: unknown[] = []
     const setTimeout = (f: () => void, t?: number) => globalThis.setTimeout(f, t) as unknown as number
-    const runner = new TestRunner(
-        'reporter',
-        (url, init) => {
-            if (init?.body) {
-                reports.push(JSON.parse(init.body.toString()))
-            }
-            return Promise.resolve(new Response())
-        },
-        setTimeout,
-    )
-
-    setTestContext(context, main)
+    const reports: Array<{type: keyof Reporter, data: unknown}> = []
+    const normalizeData = (d: unknown) => JSON.parse(JSON.stringify(d)) as unknown
+    const reporter = {
+        schedule: mock.fn<Reporter['schedule']>(async data => void reports.push({type: 'schedule', data: normalizeData(data)})),
+        error: mock.fn<Reporter['error']>(async data => void reports.push({type: 'error', data: normalizeData(data)})),
+        result: mock.fn<Reporter['result']>(async data => void reports.push({type: 'result', data: normalizeData(data)})),
+        complete: mock.fn<Reporter['complete']>(async data => void reports.push({type: 'complete', data: normalizeData(data)})),
+    }
+    const loader = mock.fn<Loader>(async url => {
+        if (url in moduleMocks) {
+            return moduleMocks[url]()
+        } else {
+            throw new Error('Module not found')
+        }
+    })
+    const runner = new TestRunner(reporter, setTimeout, context, loader)
 
     return {
-        context,
-        main,
         runner,
+        reporter,
+        loader,
+        context,
         reports,
+        getReports: (type: keyof Reporter) => reports.filter(r => r.type === type).map(r => r.data),
     }
 }
 
 test('run tests', async () => {
-    const {context, main, runner, reports} = setupTestRunner()
     const callback = mock.fn<(x: unknown) => void>()
+    const {context, runner, reports} = setupTestRunner({
+        'test://foo.js': () => {
+            context.test('some test', () => callback('a'))
+            context.test('other test', () => callback('b'))
+        },
+    })
 
-    context.test('some test', () => callback('a'))
-    context.test('other test', () => callback('b'))
-
-    await runner.run('runXYZ', main)
+    await runner.run([], 'test://foo.js')
 
     expect(callback).toHaveBeenNthCalledWith(1, 'a')
     expect(callback).toHaveBeenNthCalledWith(2, 'b')
+    expect(reports).toEqual([
+        {type: 'schedule', data: {
+            nodes: [
+                {id: 1, title: 'some test'},
+                {id: 2, title: 'other test'},
+            ],
+        }},
+        {type: 'result', data: {
+            nodeId: 1,
+            type: 'success',
+            duration: expect.any(Number),
+        }},
+        {type: 'result', data: {
+            nodeId: 2,
+            type: 'success',
+            duration: expect.any(Number),
+        }},
+        {type: 'complete', data: {
+            coverage: {},
+        }},
+    ])
+})
 
-    expect(reports).toContainEqual(expect.objectContaining({
-        runId: 'runXYZ',
-        type: 'schedule',
-        group: JSON.parse(JSON.stringify(main)),
-    }))
-    expect(reports).toContainEqual(expect.objectContaining({
-        runId: 'runXYZ',
-        type: 'result',
-        testId: main.children[0].id,
-        result: {
-            __T: 'TestResult',
-            status: 'success',
-            duration: expect.any(Number),
+test('run grouped tests', async () => {
+    const {context, runner, reports} = setupTestRunner({
+        'test://foo.js': () => {
+            context.describe('some group', () => {
+                context.test('nested test', () => void 0)
+                context.test('another nested test', () => void 0)
+            })
         },
-    }))
-    expect(reports).toContainEqual(expect.objectContaining({
-        runId: 'runXYZ',
-        type: 'result',
-        testId: main.children[1].id,
-        result: {
-            __T: 'TestResult',
-            status: 'success',
+    })
+
+    await runner.run([], 'test://foo.js')
+
+    expect(reports).toEqual([
+        {type: 'schedule', data: {
+            nodes: [
+                {id: 1, title: 'some group', children: [
+                    {id: 2, title: 'nested test'},
+                    {id: 3, title: 'another nested test'},
+                ]},
+            ],
+        }},
+        {type: 'result', data: {
+            nodeId: 2,
+            type: 'success',
             duration: expect.any(Number),
-        },
-    }))
-    expect(reports).toContainEqual(expect.objectContaining({
-        runId: 'runXYZ',
-        type: 'complete',
-        groupId: main.id,
-    }))
+        }},
+        {type: 'result', data: {
+            nodeId: 3,
+            type: 'success',
+            duration: expect.any(Number),
+        }},
+        {type: 'complete', data: {
+            coverage: {},
+        }},
+    ])
 })
 
 test('report failing test', async () => {
-    const {context, main, runner, reports} = setupTestRunner()
-
-    context.test('failing test', () => { throw new Error('some error') })
-    context.test('following test', () => void 0)
-
-    await runner.run('runXYZ', main)
-
-    expect(reports).toContainEqual(expect.objectContaining({
-        runId: 'runXYZ',
-        type: 'result',
-        testId: main.children[0].id,
-        result: {
-            __T: 'TestResult',
-            status: 'fail',
-            duration: expect.any(Number),
-            error: expect.objectContaining({message: 'some error'}),
+    const {context, runner, getReports} = setupTestRunner({
+        'test://foo.js': () => {
+            context.test('failing test', () => { throw new Error('some error') })
+            context.test('following test', () => void 0)
         },
-    }))
-    expect(reports).toContainEqual(expect.objectContaining({
-        type: 'result',
-        testId: main.children[1].id,
-    }))
+    })
+
+    await runner.run([], 'test://foo.js')
+
+    expect(getReports('result')).toEqual([
+        { nodeId: 1, type: 'fail', duration: expect.any(Number), error: expect.objectContaining({message: 'some error'})},
+        { nodeId: 2, type: 'success', duration: expect.any(Number)},
+    ])
 })
 
 test('report test timeout', async () => {
-    const {context, main, runner, reports} = setupTestRunner()
-
-    context.test('timeout test', async () => {
-        await new Promise(r => setTimeout(r))
-    }, 0)
-    context.test('following test', () => void 0)
-
-    await runner.run('runXYZ', main)
-
-    expect(reports).toContainEqual(expect.objectContaining({
-        runId: 'runXYZ',
-        type: 'result',
-        testId: main.children[0].id,
-        result: {
-            __T: 'TestResult',
-            status: 'timeout',
-            duration: expect.any(Number),
-            error: expect.objectContaining({message: expect.stringContaining('timed out after 0ms')}),
+    const {context, runner, getReports} = setupTestRunner({
+        'test://foo.js': () => {
+            context.test('timeout test', async () => {
+                await new Promise(r => setTimeout(r))
+            }, 0)
+            context.test('following test', () => void 0)
         },
-    }))
-    expect(reports).toContainEqual(expect.objectContaining({
-        type: 'result',
-        testId: main.children[1].id,
-    }))
+    })
+
+    await runner.run([], 'test://foo.js')
+
+    expect(getReports('result')).toEqual([
+        { nodeId: 1, type: 'timeout', duration: expect.any(Number), error: expect.objectContaining({message: expect.stringMatching('timed out after')})},
+        { nodeId: 2, type: 'success', duration: expect.any(Number)},
+    ])
 })
 
 test('skip test', async () => {
-    const {context, main, runner, reports} = setupTestRunner()
-
-    context.test('skipped test', () => void 0)
-    context.test('following test', () => void 0)
-
-    await runner.run('runXYZ', main, (i) => !i.title.includes('skip'))
-
-    expect(reports).toContainEqual(expect.objectContaining({
-        runId: 'runXYZ',
-        type: 'result',
-        testId: main.children[0].id,
-        result: {
-            __T: 'TestResult',
-            status: 'skipped',
+    const {context, runner, getReports} = setupTestRunner({
+        'test://foo.js': () => {
+            context.test('skipped test', () => void 0)
+            context.test('following test', () => void 0)
         },
-    }))
-    expect(reports).toContainEqual(expect.objectContaining({
-        type: 'result',
-        testId: main.children[1].id,
-    }))
+    })
+
+    await runner.run([], 'test://foo.js', /^(?!skipped)/)
+
+    expect(getReports('result')).toEqual([
+        { nodeId: 1, type: 'skipped'},
+        { nodeId: 2, type: 'success', duration: expect.any(Number)},
+    ])
 })
 
 test('run hooks', async () => {
-    const {context, main, runner} = setupTestRunner()
     const log: string[] = []
+    const {context, runner} = setupTestRunner({
+        'test://foo.js': () => {
+            context.beforeAll(() => {
+                log.push('beforeAll-suite-1')
+                return () => void log.push('return of beforeAll-suite-1')
+            })
+            context.beforeAll(() => {
+                log.push('beforeAll-suite-2')
+                return () => void log.push('return of beforeAll-suite-2')
+            })
+            context.beforeEach(() => {
+                log.push('beforeEach-suite-1')
+                return () => void log.push('return of beforeEach-suite-1')
+            })
+            context.beforeEach(() => {
+                log.push('beforeEach-suite-2')
+                return () => void log.push('return of beforeEach-suite-2')
+            })
+            context.afterAll(() => void log.push('afterAll-suite-1'))
+            context.afterAll(() => void log.push('afterAll-suite-2'))
+            context.afterEach(() => void log.push('afterEach-suite-1'))
+            context.afterEach(() => void log.push('afterEach-suite-2'))
+            context.test('testX', () => void log.push('TEST X'))
+            context.describe('groupA', () => {
+                context.beforeAll(() => {
+                    log.push('beforeAll-groupA-1')
+                    return () => void log.push('return of beforeAll-groupA-1')
+                })
+                context.beforeEach(() => {
+                    log.push('beforeEach-groupA-1')
+                    return () => void log.push('return of beforeEach-groupA-1')
+                })
+                context.afterAll(() => void log.push('afterAll-groupA-1'))
+                context.afterEach(() => void log.push('afterEach-groupA-1'))
+                context.test('testY1', () => void log.push('TEST Y1'))
+                context.test('testY2', () => void log.push('TEST Y2'))
+            })
+        },
+    })
 
-    context.beforeAll(() => {
-        log.push('beforeAll-A')
-        return () => void log.push('return of beforeAll-A')
-    })
-    context.beforeAll(() => {
-        log.push('beforeAll-B')
-        return () => void log.push('return of beforeAll-B')
-    })
-    context.beforeEach(() => {
-        log.push('beforeEach-A')
-        return () => void log.push('return of beforeEach-A')
-    })
-    context.beforeEach(() => {
-        log.push('beforeEach-B')
-        return () => void log.push('return of beforeEach-B')
-    })
-    context.afterAll(() => void log.push('afterAll-A'))
-    context.afterAll(() => void log.push('afterAll-B'))
-    context.afterEach(() => void log.push('afterEach-A'))
-    context.afterEach(() => void log.push('afterEach-B'))
-    context.test('', () => void log.push('TEST X'))
-    context.describe('', () => {
-        context.beforeAll(() => {
-            log.push('beforeAll-C')
-            return () => void log.push('return of beforeAll-C')
-        })
-        context.beforeEach(() => {
-            log.push('beforeEach-C')
-            return () => void log.push('return of beforeEach-C')
-        })
-        context.afterAll(() => void log.push('afterAll-C'))
-        context.afterEach(() => void log.push('afterEach-C'))
-        context.test('', () => void log.push('TEST Y1'))
-        context.test('', () => void log.push('TEST Y2'))
-    })
-
-    await runner.run('runXYZ', main)
+    await runner.run([], 'test://foo.js')
 
     // TODO: revert order of after* callbacks which are nested or returned from before*
     expect(log).toEqual([
-        'beforeAll-A',
-        'beforeAll-B',
-        'beforeEach-A',
-        'beforeEach-B',
+        'beforeAll-suite-1',
+        'beforeAll-suite-2',
+        'beforeEach-suite-1',
+        'beforeEach-suite-2',
         'TEST X',
-        'afterEach-A',
-        'afterEach-B',
-        'return of beforeEach-A',
-        'return of beforeEach-B',
-        'beforeAll-C',
-        'beforeEach-A',
-        'beforeEach-B',
-        'beforeEach-C',
+        'return of beforeEach-suite-2',
+        'return of beforeEach-suite-1',
+        'afterEach-suite-1',
+        'afterEach-suite-2',
+        'beforeAll-groupA-1',
+        'beforeEach-suite-1',
+        'beforeEach-suite-2',
+        'beforeEach-groupA-1',
         'TEST Y1',
-        'afterEach-A',
-        'afterEach-B',
-        'return of beforeEach-A',
-        'return of beforeEach-B',
-        'afterEach-C',
-        'return of beforeEach-C',
-        'beforeEach-A',
-        'beforeEach-B',
-        'beforeEach-C',
+        'return of beforeEach-groupA-1',
+        'afterEach-groupA-1',
+        'return of beforeEach-suite-2',
+        'return of beforeEach-suite-1',
+        'afterEach-suite-1',
+        'afterEach-suite-2',
+        'beforeEach-suite-1',
+        'beforeEach-suite-2',
+        'beforeEach-groupA-1',
         'TEST Y2',
-        'afterEach-A',
-        'afterEach-B',
-        'return of beforeEach-A',
-        'return of beforeEach-B',
-        'afterEach-C',
-        'return of beforeEach-C',
-        'afterAll-C',
-        'return of beforeAll-C',
-        'afterAll-A',
-        'afterAll-B',
-        'return of beforeAll-A',
-        'return of beforeAll-B',
+        'return of beforeEach-groupA-1',
+        'afterEach-groupA-1',
+        'return of beforeEach-suite-2',
+        'return of beforeEach-suite-1',
+        'afterEach-suite-1',
+        'afterEach-suite-2',
+        'return of beforeAll-groupA-1',
+        'afterAll-groupA-1',
+        'return of beforeAll-suite-2',
+        'return of beforeAll-suite-1',
+        'afterAll-suite-1',
+        'afterAll-suite-2',
     ])
 })
 
 test('report errors in hooks', async () => {
-    const {context, main, runner, reports} = setupTestRunner()
+    const {context, runner, getReports} = setupTestRunner({
+        'test://foo.js': () => {
+            context.beforeAll(function X() { throw 'suite-a' })
+            context.beforeEach(() => { throw 'suite-b' })
+            context.beforeEach(() => () => { throw 'suite-c' })
+            context.describe('', () => {
+                context.beforeAll(function X() { throw 'group-a' })
+                context.beforeEach(() => { throw 'group-b' })
+                context.beforeEach(() => () => { throw 'group-c' })
+                context.beforeEach(() => { throw 'group-d' })
+                context.afterEach(function Y() { throw 'group-e' })
+                context.afterAll(() => { throw 'group-f' })
+                context.test('', () => void 0)
+            })
+        },
+    })
 
-    context.beforeAll(function X() { throw new Error('a') })
-    context.beforeEach(() => { throw new Error('b') })
-    context.beforeEach(() => () => { throw new Error('c') })
-    context.afterEach(function Y() { throw new Error('d') })
-    context.afterAll(() => { throw new Error('e') })
-    context.test('', () => void 0)
+    await runner.run([], 'test://foo.js')
 
-    await runner.run('runXYZ', main)
-
-    // TODO: harmonize hook descriptors
-    expect(reports).toContainEqual(expect.objectContaining({
-        runId: 'runXYZ',
-        type: 'error',
-        groupId: main.id,
-        hook: 'beforeAll (X)',
-        error: expect.objectContaining({message: 'a'}),
-    }))
-    expect(reports).toContainEqual(expect.objectContaining({
-        runId: 'runXYZ',
-        type: 'error',
-        groupId: main.id,
-        hook: 'beforeEach ()',
-        error: expect.objectContaining({message: 'b'}),
-    }))
-    expect(reports).toContainEqual(expect.objectContaining({
-        runId: 'runXYZ',
-        type: 'error',
-        groupId: main.id,
-        hook: 'afterEach:anonymous (per beforeEach:anonymous)',
-        error: expect.objectContaining({message: 'c'}),
-    }))
-    expect(reports).toContainEqual(expect.objectContaining({
-        runId: 'runXYZ',
-        type: 'error',
-        groupId: main.id,
-        hook: 'afterEach:Y',
-        error: expect.objectContaining({message: 'd'}),
-    }))
-    expect(reports).toContainEqual(expect.objectContaining({
-        runId: 'runXYZ',
-        type: 'error',
-        groupId: main.id,
-        hook: 'afterAll:anonymous',
-        error: expect.objectContaining({message: 'e'}),
-    }))
+    expect(getReports('error')).toEqual([
+        {error: 'suite-a', hook: {type: 'beforeAll', index: 0, name: 'X'}},
+        {nodeId: 1, error: 'group-a', hook: {type: 'beforeAll', index: 0, name: 'X'}},
+        {error: 'suite-b', hook: {type: 'beforeEach', index: 0, name: ''}},
+        {nodeId: 1, error: 'group-b', hook: {type: 'beforeEach', index: 0, name: ''}},
+        {nodeId: 1, error: 'group-d', hook: {type: 'beforeEach', index: 2, name: ''}},
+        {nodeId: 1, error: 'group-c', hook: {type: 'beforeEach', index: 1, name: '', cleanup: true}},
+        {nodeId: 1, error: 'group-e', hook: {type: 'afterEach', index: 0, name: 'Y'}},
+        {error: 'suite-c', hook: {type: 'beforeEach', index: 1, name: '', cleanup: true}},
+        {nodeId: 1, error: 'group-f', hook: {type: 'afterAll', index: 0, name: ''}},
+    ])
 })

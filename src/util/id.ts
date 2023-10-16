@@ -1,12 +1,3 @@
-export class Entity {
-    readonly id: string
-    constructor(
-        props: Partial<Entity> = {},
-    ) {
-        this.id = props.id ?? makeId(6)
-    }
-}
-
 const chars = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
 export function makeId(length: number) {
     let c = ''

@@ -1,7 +1,10 @@
 import { spawn } from 'node:child_process'
-import { TestConductor } from './TestConductor'
 import path from 'node:path'
 import url from 'node:url'
+import { TestConductor } from './TestConductor'
+import { HttpReporterServer } from './HttpReporterServer'
+import { TestReporter } from './TestReporter'
+import { ErrorStackResolver } from './ErrorStackResolver'
 
 if (!import.meta.resolve) {
     throw new Error('`import.meta.resolve` is required. Run with `--experimental-import-meta-resolve`!')
@@ -11,18 +14,32 @@ const nodeFetchUrl = await import.meta.resolve('node-fetch', import.meta.url)
 const loaderPath = path.dirname(url.fileURLToPath(import.meta.url)) + '/node'
 
 export class NodeTestConductor extends TestConductor {
-    static readonly supportedFilesProtocols: string[] = ['file:', 'http:']
-    static readonly includeFilesProtocol: boolean = false
+    constructor(
+        public readonly testRunnerModule: string,
+        title?: string,
+        setupFiles: URL[] = [],
+        coverageVar = '__coverage__',
+        errorStackResolver = new ErrorStackResolver([]),
+    ) {
+        super(title, setupFiles, coverageVar)
+
+        this.reporterServer = new HttpReporterServer(errorStackResolver)
+    }
+
+    readonly reporterServer: HttpReporterServer
+
+    async close(): Promise<void> {
+        await this.reporterServer.close()
+    }
 
     public loaders = [
         `${loaderPath}/loader-netlocal.js`,
     ]
 
-    protected async runTestSuite(
-        runId: string,
-        testFile: string,
-        id: string,
-        name: string,
+    async runTestSuite(
+        reporter: TestReporter,
+        suiteUrl: string,
+        filter?: RegExp,
     ) {
         const loaderArgs = ([] as string[]).concat(
             ...this.loaders.map(l => ['--experimental-loader', l]),
@@ -77,32 +94,29 @@ export class NodeTestConductor extends TestConductor {
                     })
                 })
 
+        const reporterId = this.reporterServer.registerReporter(reporter)
+
         const childCode = `
-import { setTestContext, TestGroup, TestRunner } from "${this.testRunnerModule}"
+import { TestRunner, HttpReporterClient } from "${this.testRunnerModule}"
 import fetch from "${String(nodeFetchUrl)}"
 
 const exit = process.exit
 const setTimeout = global.setTimeout
 
 ;(async () => {
-    const execModule = async (moduleId) => {
-        const defaultExport = await import(moduleId)
-        if (typeof defaultExport === 'function') {
-            await defaultExport()
-        }
-    }
-
-    const suite = new TestGroup(${JSON.stringify({id, title: name})})
-    setTestContext(globalThis, suite)
-
-    ${this.setupFiles.map(f => `await execModule(${JSON.stringify(f)})`).join(';')}
-
-    await execModule(${JSON.stringify(testFile)})
-
-    const runner = new TestRunner(${JSON.stringify(await this.reporterServer.url)}, fetch, setTimeout, ${JSON.stringify(this.coverageVar)})
-    await runner.run(${JSON.stringify(runId)}, suite)
-
-    exit()
+    await new TestRunner(
+        new HttpReporterClient(
+            ${JSON.stringify(await this.reporterServer.url)},
+            fetch,
+            ${JSON.stringify(reporterId)},
+        ),
+        setTimeout,
+    ).run(
+        ${JSON.stringify(this.setupFiles)},
+        ${JSON.stringify(suiteUrl)},
+        ${filter ? `new RegExp(${JSON.stringify(filter.source)}, ${JSON.stringify(filter.flags)})` : JSON.stringify(undefined)},
+        ${JSON.stringify(this.coverageVar)},
+    )
 })()
         `
 

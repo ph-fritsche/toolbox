@@ -1,22 +1,16 @@
-import { Test, TestCallback } from './Test'
-import { AfterCallback, BeforeCallback, TestGroup } from './TestGroup'
+import { TestFunction, TestCallback, TestGroup, BeforeCallback, AfterCallback, TestSuite } from './TestNode'
 import { vsprintf } from './sprintf'
 
 type TestGroupDeclare<Args extends unknown[] = []> = (this: TestGroup, ...args: Args) => void
 
 export type TestContext = ReturnType<typeof setTestContext>
 
-export function setTestContext(on: object, context: TestGroup) {
+export function setTestContext(on: object, context: TestSuite|TestGroup) {
     const describe = (
         title: string,
         declare: TestGroupDeclare,
     ) => {
-        const group = new TestGroup({
-            title,
-            parent: context,
-            children: [],
-        })
-        context.addChild(group)
+        const group = new TestGroup(context, title)
         setTestContext(on, group)
         declare.call(group)
         setTestContext(on, context)
@@ -40,12 +34,7 @@ export function setTestContext(on: object, context: TestGroup) {
         callback: TestCallback,
         timeout?: number,
     ) => {
-        context.addChild(new Test({
-            title,
-            parent: context,
-            callback,
-            timeout,
-        }))
+        new TestFunction(context, title, callback, timeout)
     }
     test.each = <Args>(cases: Iterable<Args>) => (
         title: string,
@@ -54,27 +43,26 @@ export function setTestContext(on: object, context: TestGroup) {
     ) => {
         for (const args of cases) {
             const argsArray = (Array.isArray(args) ? args : [args]) as (Args extends (unknown[] | readonly unknown[]) ? [...Args] : [Args])
-            context.addChild(new Test({
-                title: vsprintf(title, argsArray),
-                parent: context,
-                callback: function(this: Test) {
+            test(
+                vsprintf(title, argsArray),
+                function(this: TestFunction) {
                     return cb.apply(this, argsArray)
                 },
                 timeout,
-            }))
+            )
         }
     }
     const beforeAll = (cb: BeforeCallback) => {
-        context.addBeforeAll(cb)
+        context.beforeAll.push(cb)
     }
     const beforeEach = (cb: BeforeCallback) => {
-        context.addBeforeEach(cb)
+        context.beforeEach.push(cb)
     }
     const afterAll = (cb: AfterCallback) => {
-        context.addAfterAll(cb)
+        context.afterAll.push(cb)
     }
     const afterEach = (cb: AfterCallback) => {
-        context.addAfterEach(cb)
+        context.afterEach.push(cb)
     }
 
     const testContextMethods = {

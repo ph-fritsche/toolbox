@@ -1,86 +1,148 @@
-import { ReporterMessageMap } from '../reporter/ReporterMessage'
-import { FilterIterator } from '../test/FilterIterator'
-import { TreeIterator } from '../test/TreeIterator'
-import { Test } from './Test'
-import { TestError } from './TestError'
-import { BeforeCallbackReturn, TestGroup } from './TestGroup'
-import { TestResult, TimeoutError } from './TestResult'
 import { CoverageMapData } from 'istanbul-lib-coverage'
+import { TestNodeFilterIterator } from './TestNodeFilterIterator'
+import { AfterCallback, BeforeCallback, TestFunction, TestGroup, TestSuite } from './TestNode'
+import { TestError, TestResult, TimeoutError } from './TestResult'
+import { Loader } from './Loader'
+import { setTestContext } from './TestContext'
+import { TestCompleteData, TestErrorData, TestHookData, TestResultData, TestScheduleData } from '../conductor/TestReporter'
+import { TestHookType } from '../conductor/TestRun'
 
-type RunnerMessageMap = ReporterMessageMap<TestGroup, TestResult, TestError>
+export interface Loader {
+    (url: string): Promise<void>
+}
 
-type fetchApi = typeof globalThis.fetch
+export interface Reporter {
+    schedule(data: TestScheduleData): Promise<void>
+    error(data: TestErrorData): Promise<void>
+    result(data: TestResultData): Promise<void>
+    complete(data: TestCompleteData): Promise<void>
+}
 
 export class TestRunner {
     constructor(
-        public reporterUrl: URL|string,
-        protected fetch: fetchApi,
-        protected setTimeout: (callback: () => void, ms?: number) => number,
-        public coverageVar: string = '__coverage__',
+        readonly reporter: Reporter,
+        public setTimeout: (callback: () => void, ms?: number) => number = globalThis.setTimeout,
+        readonly context: object = globalThis,
+        readonly loader: Loader = Loader,
     ) {}
 
     async run(
-        runId: string,
-        group: TestGroup,
-        filter?: (item: TestGroup | Test) => boolean,
+        setupFiles: string[],
+        testFile: string,
+        filter?: RegExp,
+        coverageVar = '__coverage__',
     ) {
-        await this.report('schedule', {runId, group})
+        const suite = new TestSuite()
+        setTestContext(this.context, suite)
 
-        for await (const result of this.execTestsIterator(runId, new FilterIterator(group, filter))) {
-            await this.report('result', {
-                runId,
-                testId: result.test.id,
-                result,
-            })
+        for (const f of setupFiles) {
+            await this.loader(f)
         }
 
-        await this.report('complete', {
-            runId,
-            groupId: group.id,
-            coverage: ((globalThis as {[k: string]: unknown})[this.coverageVar] as CoverageMapData|undefined) ?? {},
+        try {
+            await this.loader(testFile)
+        } catch (e) {
+            await this.reporter.error({error: this.normalizeError(e)})
+            throw e
+        }
+
+        await this.reporter.schedule({nodes: suite.children})
+
+        const results: Array<Promise<void>> = []
+        for await (const result of this.execTestsIterator(new TestNodeFilterIterator(suite, filter && (t => filter.test(t.title))))) {
+            results.push(this.reporter.result(result))
+        }
+        await Promise.allSettled(results)
+
+        await this.reporter.complete({
+            coverage: ((globalThis as {[k: string]: unknown})[coverageVar] as CoverageMapData|undefined) ?? {},
         })
     }
 
-    protected async *execTestsIterator<T extends TestGroup|Test>(
-        runId: string,
-        iterator: FilterIterator<T>,
+    protected async *execTestsIterator(
+        iterator: TestNodeFilterIterator,
     ): AsyncGenerator<TestResult> {
         if ('children' in iterator.element) {
-            let beforeAllResult: Awaited<ReturnType<TestGroup['runBefore']>>|undefined
+            const group = iterator.element
+            const afterAll: Array<[AfterCallback, TestHookData]> = []
             if (iterator.include) {
-                beforeAllResult = await iterator.element.runBeforeAll()
-                await this.reportErrors(runId, beforeAllResult.errors)
+                for (const [index, fn] of iterator.element.beforeAll.entries()) {
+                    const ret = await this.runHook(group, fn, {type: TestHookType.beforeAll, index, name: fn.name})
+                    if (typeof ret === 'function') {
+                        afterAll.push([ret, {type: TestHookType.beforeAll, index, name: fn.name, cleanup: true}])
+                    }
+                }
             }
+            afterAll.reverse()
 
             for (const i of iterator) {
-                yield* this.execTestsIterator(runId, i)
+                yield* this.execTestsIterator(i)
             }
 
-            if (beforeAllResult) {
-                const afterAllResult = await iterator.element.runAfterAll(beforeAllResult.after)
-                await this.reportErrors(runId, afterAllResult.errors)
+            if (iterator.include) {
+                for (const [fn, hook] of afterAll) {
+                    await this.runHook(group, fn, hook)
+                }
+                for (const [index, fn] of iterator.element.afterAll.entries()) {
+                    await this.runHook(group, fn, {type: TestHookType.afterAll, index, name: fn.name})
+                }
             }
         } else if (iterator.include) {
-            const ancestors = Array.from(new TreeIterator(iterator.element).getAncestors())
-            const afterEach = new Map<TestGroup, BeforeCallbackReturn[]>()
-            for (const p of ancestors.reverse()) {
-                const beforeEachResult = await p.runBeforeEach(iterator.element)
-                await this.reportErrors(runId, beforeEachResult.errors)
-                afterEach.set(p, beforeEachResult.after)
+            const tree: (TestSuite|TestGroup)[] = []
+            for (
+                let el: TestSuite|TestGroup|undefined = iterator.element.parent;
+                el;
+                el = 'parent' in el ? el.parent : undefined
+            ) {
+                tree.push(el)
+            }
+            const afterEachMap = new Map<TestSuite|TestGroup, Array<[AfterCallback, TestHookData]>>()
+            for (let i = tree.length - 1; i >= 0; i--) {
+                const group = tree[i]
+                const afterEach: Array<[AfterCallback, TestHookData]> = []
+                for (const [index, fn] of group.beforeEach.entries()) {
+                    const ret = await this.runHook(group, fn, {type: TestHookType.beforeEach, index, name: fn.name})
+                    if (typeof ret === 'function') {
+                        afterEach.push([ret, {type: TestHookType.beforeEach, index, name: fn.name, cleanup: true}])
+                    }
+                }
+                if (afterEach.length) {
+                    afterEachMap.set(group, afterEach.reverse())
+                }
             }
 
             yield await this.execTest(iterator.element)
 
-            for (const p of ancestors) {
-                const afterEachResult = await p.runAfterEach(iterator.element, afterEach.get(p) as BeforeCallbackReturn[])
-                await this.reportErrors(runId, afterEachResult.errors)
+            for (const group of tree) {
+                for (const [fn, hook] of afterEachMap.get(group) ?? []) {
+                    await this.runHook(group, fn, hook)
+                }
+                for (const [index, fn] of group.afterEach.entries()) {
+                    await this.runHook(group, fn, {type: TestHookType.afterEach, index, name: fn.name})
+                }
             }
         } else {
             yield new TestResult(iterator.element)
         }
     }
 
-    protected async execTest(test: Test) {
+    protected async runHook(
+        group: TestSuite|TestGroup,
+        fn: BeforeCallback|AfterCallback,
+        hook: TestHookData,
+    ) {
+        try {
+            return await fn.apply(group)
+        } catch (e) {
+            await this.reporter.error({
+                nodeId: group instanceof TestSuite ? undefined : group.id,
+                hook,
+                error: this.normalizeError(e),
+            })
+        }
+    }
+
+    protected async execTest(test: TestFunction) {
         const timeout = test.timeout ?? 5000
         const t0 = performance.now()
         let timer: number|undefined
@@ -95,39 +157,19 @@ export class TestRunner {
                 test.callback.call(test),
             ])
             const duration = performance.now() - t0
-            return new TestResult(test, {duration})
-        } catch (error) {
+            return new TestResult(test, undefined, duration)
+        } catch (e) {
             const duration = performance.now() - t0
-            return new TestResult(test, {
-                duration,
-                error: error as Error,
-            })
+            return new TestResult(test, this.normalizeError(e), duration)
         } finally {
             reject()
             clearTimeout(timer)
         }
     }
 
-    protected async report<K extends keyof RunnerMessageMap>(type: K, data: RunnerMessageMap[K]) {
-        return this.fetch(this.reporterUrl, {
-            method: 'POST',
-            headers: {
-                'content-type': 'application/json',
-            },
-            body: JSON.stringify({
-                type,
-                ...data,
-            }),
-        })
-    }
-
-    protected async reportErrors(runId: string, errors: TestError[]) {
-        return Promise.allSettled(errors.map(e => this.report('error', {
-            runId,
-            groupId: e.context.id,
-            testId: e.test?.id,
-            hook: e.hook,
-            error: e,
-        })))
+    protected normalizeError(e: unknown): Error|string {
+        return e instanceof TestError ? e
+            : e instanceof Error ? TestError.fromError(e)
+                : String(e)
     }
 }

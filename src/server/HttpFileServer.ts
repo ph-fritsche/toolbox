@@ -1,6 +1,7 @@
 import {createServer, IncomingMessage, ServerResponse} from 'http'
 import { FileProvider } from './FileProvider'
 import { FileServer, FileServerEventMap } from './FileServer'
+import { getEventDispatch } from '../event'
 
 type HttpFileServerEventMap = FileServerEventMap & {
     connection: {
@@ -43,11 +44,12 @@ export class HttpFileServer extends FileServer<HttpFileServerEventMap> {
             res.end()
         }
 
-        this.emitter.dispatch('connection', {
+        this.dispatch('connection', {
             request: req,
             response: res,
         })
     })
+    protected readonly dispatch = getEventDispatch(this.emitter)
 
     private getUrl() {
         const addr = this.server.address()

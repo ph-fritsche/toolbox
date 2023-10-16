@@ -27,7 +27,7 @@
         "@types/istanbul-lib-report": "^3.0.0",
         "@types/istanbul-lib-source-maps": "^4.0.1",
         "@types/istanbul-reports": "^3.0.1",
-        "@types/node": "^16",
+        "@types/node": "^18",
         "@types/resolve": "^1.20.2",
         "eslint": "^8.39.0",
         "expect": "^29.5.0",
@@ -40,6 +40,9 @@
         "shared-scripts": "^1.6.0",
         "swc-plugin-coverage-instrument": "^0.0.18",
         "typescript": "^5.0.4"
+    },
+    "engines": {
+        "node": ">=18"
     },
     "type": "module",
     "scripts": {
