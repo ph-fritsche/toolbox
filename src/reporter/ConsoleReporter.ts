@@ -15,7 +15,7 @@ const icon = {
 }
 
 const isEventType = makeEventTypeCheck<TestEventMap>()
-const events: Array<keyof TestEventMap> = ['complete', 'done', 'error', 'result', 'schedule', 'start']
+const events: Array<keyof TestEventMap> = ['complete', 'done', 'error', 'result', 'schedule', 'skip', 'start']
 
 export class ConsoleReporter {
     protected unsubscribe = new Map<TestRunStack, Set<() => void>>()
@@ -29,8 +29,7 @@ export class ConsoleReporter {
             for (const k of events) {
                 set.add(runStack.addListener(k, e => this.log(e)))
             }
-
-            set.add(runStack.addListener('done', () => {
+            const summary = () => {
                 for (const r of runStack.instances.values()) {
                     if (r.index.suites.pending.size || r.index.suites.running.size) {
                         return
@@ -44,7 +43,10 @@ export class ConsoleReporter {
                     this.printConductorSummary(runStack),
                     '',
                 ].join('\n'))
-            }))
+            }
+
+            set.add(runStack.addListener('done', summary))
+            set.add(runStack.addListener('skip', summary))
         }
     }
 
@@ -60,6 +62,7 @@ export class ConsoleReporter {
         result: true,
         error: true,
         done: false,
+        skip: false,
         summary: true,
     }
 
