@@ -77,6 +77,7 @@ export class TestSuite extends TestNodeInstance {
     protected static init(instance: TestSuite): void {
         TestNodeInstance.init(instance)
         instance.run.suites.set(instance.url, instance)
+        instance.run.index.suites[instance.state].add(instance)
     }
 
     readonly nodes = new Map<number, TestElementInstance>()

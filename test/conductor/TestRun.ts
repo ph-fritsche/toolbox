@@ -1,6 +1,6 @@
 import type { CoverageMapData } from 'istanbul-lib-coverage'
 import { promise } from '#src/util/promise'
-import { createTestRun, TestHookType, TestResultType } from '#src/conductor/TestRun'
+import { createTestRun, TestHookType, TestResultType, TestRunState } from '#src/conductor/TestRun'
 import { TestError } from '#src/conductor/TestRun/TestError'
 import { TestFunction } from '#src/conductor/TestRun/TestFunction'
 import { TestGroup } from '#src/conductor/TestRun/TestGroup'
@@ -295,61 +295,96 @@ test('report coverage', async () => {
     expect(onComplete).toBeCalledWith({type: 'complete', node: suite})
 })
 
-test('collect index', async () => {
-    const { conductor: conductorA } = setupDummyConductor('A')
-    const { conductor: conductorB } = setupDummyConductor('B')
-    const run = createTestRun([conductorA, conductorB], [
-        {url: 'test://foo.js', title: 'foo'},
-        {url: 'test://bar.js', title: 'bar'},
-        {url: 'test://baz.js', title: 'baz'},
-    ])
-    const suiteAFoo = run.runs.get(conductorA)!.suites.get('test://foo.js')!
-    const suiteBFoo = run.runs.get(conductorB)!.suites.get('test://foo.js')!
-    const nodeData: TestNodeData[] = [
-        {id: 1, title: 'group A', children: [
-            {id: 2, title: 'test A'},
-            {id: 3, title: 'test B'},
-        ]},
-        {id: 4, title: 'group B', children: [
-            {id: 5, title: 'test C'},
-        ]},
-    ]
-    createTestElements(suiteAFoo, nodeData)
-    createTestElements(suiteBFoo, nodeData)
-    createTestElements(suiteBFoo, [{id: 6, title: 'test D'}])
+describe('collect index', () => {
+    function setupDummyRunStack() {
+        const { conductor: conductorA } = setupDummyConductor('A')
+        const { conductor: conductorB } = setupDummyConductor('B')
+        const runStack = createTestRun([conductorA, conductorB], [
+            {url: 'test://foo.js', title: 'foo'},
+            {url: 'test://bar.js', title: 'bar'},
+            {url: 'test://baz.js', title: 'baz'},
+        ])
+        const runA = runStack.runs.get(conductorA)!
+        const runB = runStack.runs.get(conductorB)!
+        const suiteAFoo = runA.suites.get('test://foo.js')!
+        const suiteBFoo = runB.suites.get('test://foo.js')!
+        const nodeData: TestNodeData[] = [
+            {id: 1, title: 'group A', children: [
+                {id: 2, title: 'test A'},
+                {id: 3, title: 'test B'},
+            ]},
+            {id: 4, title: 'group B', children: [
+                {id: 5, title: 'test C'},
+            ]},
+        ]
+        createTestElements(suiteAFoo, nodeData)
+        createTestElements(suiteBFoo, nodeData)
+        createTestElements(suiteBFoo, [{id: 6, title: 'test D'}])
 
-    expect(run.index.tests.size).toBe(4)
-    expect(run.runs.get(conductorA)!.index.tests.size).toBe(3)
-    expect(run.runs.get(conductorB)!.index.tests.size).toBe(4)
+        return {
+            runStack,
+            conductorA,
+            conductorB,
+            runA,
+            runB,
+            suiteAFoo,
+            suiteBFoo,
+        }
+    }
 
-    getTestFunction(suiteAFoo, 2).result.set(new TestResult(TestResultType.success))
+    test('suites', () => {
+        const { runA, suiteAFoo } = setupDummyRunStack()
+        const setState = (s: typeof suiteAFoo['state']) => Reflect.set(suiteAFoo, 'state', s, suiteAFoo)
 
-    expect(suiteAFoo.index.results.success.size).toBe(1)
-    expect(run.index.results.success.size).toBe(0)
+        expect(runA.index.suites.pending.size).toBe(3)
+        setState(TestRunState.done)
 
-    getTestFunction(suiteBFoo, 2).result.set(new TestResult(TestResultType.success))
+        expect(suiteAFoo.state).toBe(TestRunState.done)
+        expect(runA.index.suites.pending.size).toBe(2)
+        expect(runA.index.suites.done.size).toBe(1)
+    })
 
-    expect(suiteBFoo.index.results.success.size).toBe(1)
-    expect(run.index.results.success.size).toBe(1)
+    test('tests', async () => {
+        const { runStack, runA, runB, suiteAFoo, suiteBFoo } = setupDummyRunStack()
 
-    getTestFunction(suiteAFoo, 3).result.set(new TestResult(TestResultType.timeout))
-    getTestFunction(suiteBFoo, 3).result.set(new TestResult(TestResultType.fail))
+        expect(runStack.index.tests.size).toBe(4)
+        expect(runA.index.tests.size).toBe(3)
+        expect(runB.index.tests.size).toBe(4)
 
-    expect(suiteAFoo.index.results.timeout.size).toBe(1)
-    expect(suiteBFoo.index.results.fail.size).toBe(1)
-    expect(run.index.results.MIXED.size).toBe(1)
+        getTestFunction(suiteAFoo, 2).result.set(new TestResult(TestResultType.success))
 
-    getTestFunction(suiteBFoo, 6).result.set(new TestResult(TestResultType.skipped))
+        expect(suiteAFoo.index.results.success.size).toBe(1)
+        expect(runStack.index.results.success.size).toBe(0)
 
-    expect(suiteAFoo.index.results.skipped.size).toBe(0)
-    expect(suiteBFoo.index.results.skipped.size).toBe(1)
-    expect(run.index.results.skipped.size).toBe(1)
+        getTestFunction(suiteBFoo, 2).result.set(new TestResult(TestResultType.success))
 
-    getTestGroup(suiteAFoo, 1).errors.add(new TestError('foo'))
-    getTestGroup(suiteAFoo, 4).errors.add(new TestError('foo'))
-    getTestGroup(suiteBFoo, 4).errors.add(new TestError('foo'))
+        expect(suiteBFoo.index.results.success.size).toBe(1)
+        expect(runStack.index.results.success.size).toBe(1)
 
-    expect(suiteAFoo.index.errors.size).toBe(2)
-    expect(suiteBFoo.index.errors.size).toBe(1)
-    expect(run.index.errors.size).toBe(2)
+        getTestFunction(suiteAFoo, 3).result.set(new TestResult(TestResultType.timeout))
+        getTestFunction(suiteBFoo, 3).result.set(new TestResult(TestResultType.fail))
+
+        expect(suiteAFoo.index.results.timeout.size).toBe(1)
+        expect(suiteBFoo.index.results.fail.size).toBe(1)
+        expect(runStack.index.results.MIXED.size).toBe(1)
+
+        getTestFunction(suiteBFoo, 6).result.set(new TestResult(TestResultType.skipped))
+
+        expect(suiteAFoo.index.results.skipped.size).toBe(0)
+        expect(suiteBFoo.index.results.skipped.size).toBe(1)
+        expect(runStack.index.results.skipped.size).toBe(1)
+
+    })
+
+    test('errors', async () => {
+        const { runStack, suiteAFoo, suiteBFoo } = setupDummyRunStack()
+
+        getTestGroup(suiteAFoo, 1).errors.add(new TestError('foo'))
+        getTestGroup(suiteAFoo, 4).errors.add(new TestError('foo'))
+        getTestGroup(suiteBFoo, 4).errors.add(new TestError('foo'))
+
+        expect(suiteAFoo.index.errors.size).toBe(2)
+        expect(suiteBFoo.index.errors.size).toBe(1)
+        expect(runStack.index.errors.size).toBe(2)
+    })
 })
