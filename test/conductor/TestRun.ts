@@ -1,11 +1,11 @@
 import type { CoverageMapData } from 'istanbul-lib-coverage'
 import { promise } from '#src/util/promise'
-import { createTestRun, TestHookType, TestResultType, TestRunState } from '#src/conductor/TestRun'
+import { createTestRun, TestHookType, TestResultType, TestRunState, TestSuite } from '#src/conductor/TestRun'
 import { TestError } from '#src/conductor/TestRun/TestError'
 import { TestFunction } from '#src/conductor/TestRun/TestFunction'
 import { TestGroup } from '#src/conductor/TestRun/TestGroup'
 import { TestResult } from '#src/conductor/TestRun/TestResult'
-import { getSuiteReporter, getTestFunction, getTestGroup, setupDummyConductor, setupDummySuite, setupRunningSuite } from './_helper'
+import { getSuiteReporter, getTestFunction, getTestGroup, setSuiteState, setupDummyConductor, setupDummySuite, setupRunningSuite } from './_helper'
 import { createTestElements } from '#src/conductor/TestRun/createTestElements'
 import { TestNodeData } from '#src/conductor/TestReporter'
 
@@ -333,15 +333,17 @@ describe('collect index', () => {
     }
 
     test('suites', () => {
-        const { runA, suiteAFoo } = setupDummyRunStack()
-        const setState = (s: typeof suiteAFoo['state']) => Reflect.set(suiteAFoo, 'state', s, suiteAFoo)
+        const { runStack, runA, suiteAFoo } = setupDummyRunStack()
 
         expect(runA.index.suites.pending.size).toBe(3)
-        setState(TestRunState.done)
+        expect(runStack.index.suites.pending.size).toBe(6)
+        setSuiteState(suiteAFoo, TestRunState.done)
 
         expect(suiteAFoo.state).toBe(TestRunState.done)
         expect(runA.index.suites.pending.size).toBe(2)
         expect(runA.index.suites.done.size).toBe(1)
+        expect(runStack.index.suites.pending.size).toBe(5)
+        expect(runStack.index.suites.done.size).toBe(1)
     })
 
     test('tests', async () => {

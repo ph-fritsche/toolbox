@@ -21,6 +21,10 @@ class TestStackIndexResults {
     }
 }
 
+export class TestRunStackIndex extends TestStackIndex {
+    readonly suites = new TestIndexSuites()
+}
+
 export class TestInstanceIndex {
     readonly errors = new Set<TestGroup|TestSuite>
     readonly tests = new Set<TestFunction>
@@ -39,10 +43,10 @@ class TestInstanceIndexResults {
 }
 
 export class TestRunInstanceIndex extends TestInstanceIndex {
-    readonly suites = new TestRunInstanceIndexSuites()
+    readonly suites = new TestIndexSuites()
 }
 
-class TestRunInstanceIndexSuites {
+class TestIndexSuites {
     readonly [TestRunState.pending] = new Set<TestSuite>
     readonly [TestRunState.skipped] = new Set<TestSuite>
     readonly [TestRunState.running] = new Set<TestSuite>

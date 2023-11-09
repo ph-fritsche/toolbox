@@ -1,5 +1,5 @@
 import { TestConductor } from '../TestConductor'
-import { TestRunInstanceIndex, TestStackIndex } from './TestIndex'
+import { TestRunInstanceIndex, TestRunStackIndex } from './TestIndex'
 import { TestNodeInstance, TestNodeStack } from './TestNode'
 import { TestSuite, TestSuiteStack } from './TestSuite'
 
@@ -23,7 +23,7 @@ export class TestRunStack extends TestNodeStack<TestRunInstance> {
     readonly runs = new Map<TestConductor, TestRunInstance>()
     readonly instances = new Map<TestRunInstance, TestRunInstance>()
     readonly children = new Map<string, TestSuiteStack>()
-    readonly index = new TestStackIndex()
+    readonly index = new TestRunStackIndex()
     readonly suites = this.children
 
     protected constructor() {

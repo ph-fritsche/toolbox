@@ -1,6 +1,6 @@
 import { TestConductor } from '#src/conductor/TestConductor'
 import { TestReporter } from '#src/conductor/TestReporter'
-import { TestSuite } from '#src/conductor/TestRun'
+import { TestRunState, TestSuite } from '#src/conductor/TestRun'
 import { TestFunction } from '#src/conductor/TestRun/TestFunction'
 import { TestGroup } from '#src/conductor/TestRun/TestGroup'
 import { TestRunStack } from '#src/conductor/TestRun/TestRun'
@@ -23,9 +23,13 @@ export function setupDummySuite() {
     return suite as TestSuite
 }
 
+export function setSuiteState(suite: TestSuite, state: TestRunState) {
+    Reflect.set(suite, 'state', state, suite)
+}
+
 export function setupRunningSuite() {
     const suite = setupDummySuite()
-    Object.defineProperty(suite, '_state', {value: 'running'})
+    setSuiteState(suite, TestRunState.running)
     return suite
 }
 

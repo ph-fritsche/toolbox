@@ -78,6 +78,7 @@ export class TestSuite extends TestNodeInstance {
         TestNodeInstance.init(instance)
         instance.run.suites.set(instance.url, instance)
         instance.run.index.suites[instance.state].add(instance)
+        instance.run.stack.index.suites[instance.state].add(instance)
     }
 
     readonly nodes = new Map<number, TestElementInstance>()
@@ -100,9 +101,11 @@ export class TestSuite extends TestNodeInstance {
     }
     protected set state(v: TestRunState) {
         this.run.index.suites[this._state].delete(this)
+        this.run.stack.index.suites[this._state].delete(this)
 
         this._state = v
         this.run.index.suites[this._state].add(this)
+        this.run.stack.index.suites[this._state].add(this)
 
         if (v === TestRunState.skipped) {
             this.dispatch('skip', {node: this})
