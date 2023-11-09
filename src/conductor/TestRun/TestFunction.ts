@@ -16,12 +16,28 @@ export class TestFunctionStack extends TestElementStack<TestFunction> {
     }
 
     declare children: undefined
-    resultType?: TestResultType|'MIXED'
 
     protected static init(instance: TestFunctionStack) {
         TestElementStack.init(instance)
         for (const n of instance.ancestors(false)) {
             n.index?.tests.add(instance)
+        }
+    }
+
+    #resultType?: TestResultType|'MIXED'
+    get resultType(): undefined|TestResultType|'MIXED' {
+        return this.#resultType
+    }
+    set resultType(t: TestResultType|'MIXED') {
+        if (t !== this.#resultType) {
+            const newType = this.#resultType ? 'MIXED' : t
+            for (const n of this.ancestors(false)) {
+                if (this.#resultType) {
+                    n.index?.results[this.#resultType].delete(this)
+                }
+                n.index?.results[newType].add(this)
+            }
+            this.#resultType = newType
         }
     }
 }
@@ -56,22 +72,7 @@ export class TestFunction extends TestElementInstance {
             n.index?.results[result.type].add(this)
         }
 
-        let type: undefined|TestResultType|'MIXED' = result.type
-        for (const i of this.stack.instances.values()) {
-            const t = i.result.get()?.type
-            if (t === undefined) {
-                type = undefined
-                break
-            } else if (type === 'MIXED' || t !== type) {
-                type = 'MIXED'
-            }
-        }
-        if (type) {
-            this.stack.resultType = type
-            for (const n of this.stack.ancestors(false)) {
-                n.index?.results[type].add(this.stack)
-            }
-        }
+        this.stack.resultType = result.type
 
         this.dispatch('result', {node: this, result})
     })

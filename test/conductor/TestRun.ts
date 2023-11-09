@@ -1,6 +1,6 @@
 import type { CoverageMapData } from 'istanbul-lib-coverage'
 import { promise } from '#src/util/promise'
-import { createTestRun, TestHookType, TestResultType, TestRunState, TestSuite } from '#src/conductor/TestRun'
+import { createTestRun, TestHookType, TestResultType, TestRunState } from '#src/conductor/TestRun'
 import { TestError } from '#src/conductor/TestRun/TestError'
 import { TestFunction } from '#src/conductor/TestRun/TestFunction'
 import { TestGroup } from '#src/conductor/TestRun/TestGroup'
@@ -356,7 +356,7 @@ describe('collect index', () => {
         getTestFunction(suiteAFoo, 2).result.set(new TestResult(TestResultType.success))
 
         expect(suiteAFoo.index.results.success.size).toBe(1)
-        expect(runStack.index.results.success.size).toBe(0)
+        expect(runStack.index.results.success.size).toBe(1)
 
         getTestFunction(suiteBFoo, 2).result.set(new TestResult(TestResultType.success))
 
@@ -364,10 +364,13 @@ describe('collect index', () => {
         expect(runStack.index.results.success.size).toBe(1)
 
         getTestFunction(suiteAFoo, 3).result.set(new TestResult(TestResultType.timeout))
+        expect(suiteAFoo.index.results.timeout.size).toBe(1)
+        expect(runStack.index.results.timeout.size).toBe(1)
+
         getTestFunction(suiteBFoo, 3).result.set(new TestResult(TestResultType.fail))
 
-        expect(suiteAFoo.index.results.timeout.size).toBe(1)
         expect(suiteBFoo.index.results.fail.size).toBe(1)
+        expect(runStack.index.results.timeout.size).toBe(0)
         expect(runStack.index.results.MIXED.size).toBe(1)
 
         getTestFunction(suiteBFoo, 6).result.set(new TestResult(TestResultType.skipped))
@@ -389,4 +392,42 @@ describe('collect index', () => {
         expect(suiteBFoo.index.errors.size).toBe(1)
         expect(runStack.index.errors.size).toBe(2)
     })
+})
+
+test('provide aggregated result on `TestFunctionStack`', async () => {
+    const { conductor: conductorA } = setupDummyConductor('A')
+    const { conductor: conductorB } = setupDummyConductor('B')
+    const runStack = createTestRun([conductorA, conductorB], [
+        {url: 'test://foo.js', title: 'foo'},
+    ])
+    const suiteA = runStack.runs.get(conductorA)!.suites.get('test://foo.js')!
+    const suiteB = runStack.runs.get(conductorB)!.suites.get('test://foo.js')!
+    setSuiteState(suiteA, TestRunState.running)
+    setSuiteState(suiteB, TestRunState.running)
+
+    expect(runStack.suites.get('test://foo.js')!.children.size).toBe(0)
+
+    const funcA = TestFunction.create(suiteA, 1, 'some test', 'some test')
+    const functionStack = funcA.stack
+
+    expect(funcA.result.get()).toBe(undefined)
+    expect(runStack.suites.get('test://foo.js')!.children.size).toBe(1)
+    expect(functionStack.resultType).toBe(undefined)
+
+    funcA.result.set(new TestResult(TestResultType.success))
+    expect(funcA.result.get()).toEqual({type: TestResultType.success})
+    expect(functionStack.resultType).toBe(TestResultType.success)
+
+    const funcB = TestFunction.create(suiteB, 1, 'some test', 'some test')
+
+    expect(funcB.result.get()).toBe(undefined)
+    expect(funcB.stack).toBe(functionStack)
+    expect(functionStack.resultType).toBe(TestResultType.success)
+
+    funcB.result.set(new TestResult(TestResultType.fail))
+    expect(funcB.result.get()).toEqual({type: TestResultType.fail})
+    expect(functionStack.resultType).toBe('MIXED')
+
+    expect(runStack.index.results.MIXED.size).toBe(1)
+    expect(runStack.index.results.success.size).toBe(0)
 })
