@@ -47,6 +47,7 @@
     "type": "module",
     "scripts": {
         "build": "scripts ts-build2 && cp src/conductor/node/experimental.cjs dist/conductor/node/experimental.cjs",
+        "dev": "node --require ./util/dev.cjs --require ./src/conductor/node/experimental.cjs --experimental-loader ./src/conductor/node/loader-src.js --experimental-import-meta-resolve --enable-source-maps --watch",
         "test": "node --require ./src/conductor/node/experimental.cjs --experimental-loader ./src/conductor/node/loader-src.js --experimental-import-meta-resolve --enable-source-maps ./util/test.ts",
         "typecheck": "tsc && tsc -p test/tsconfig.json",
         "lint": "eslint ."
