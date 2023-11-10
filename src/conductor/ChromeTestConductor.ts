@@ -1,6 +1,5 @@
 import puppeteer from 'puppeteer-core'
 import { TestConductor } from './TestConductor'
-import { makeId } from '../util/id'
 import { HttpReporterServer } from './HttpReporterServer'
 import { TestReporter } from './TestReporter'
 import { ErrorStackResolver } from './ErrorStackResolver'
@@ -42,11 +41,11 @@ export class ChromeTestConductor extends TestConductor {
         const page = await (await this.browser).newPage()
         page.setDefaultNavigationTimeout(600000)
 
-        const callbackId = makeId(6)
+        const callbackPrefix = '__CHROMETESTCONDUCTOR_CALLBACK_'
 
         const donePromise = new Promise((res, rej) => {
-            void page.exposeFunction(`__${callbackId}-resolve`, res)
-            void page.exposeFunction(`__${callbackId}-reject`, rej)
+            void page.exposeFunction(`${callbackPrefix}-resolve`, res)
+            void page.exposeFunction(`${callbackPrefix}-reject`, rej)
         })
 
         page.on('console', m => console.log(m.type(), m.text()))
@@ -74,8 +73,8 @@ await ((async () => {
         ${JSON.stringify(this.coverageVar)},
     )
 })()).then(
-    r => window['__${callbackId}-resolve'](String(r)),
-    r => window['__${callbackId}-reject'](r instanceof Error ? r.stack : String(r)),
+    r => window['${callbackPrefix}-resolve'](String(r)),
+    r => window['${callbackPrefix}-reject'](r instanceof Error ? r.stack : String(r)),
 )
         `
 
