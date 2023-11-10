@@ -84,5 +84,7 @@ await ((async () => {
         await page.setContent(`<html><head><script type="module">${childCode}</script>`)
 
         await donePromise
+
+        await page.close()
     }
 }
