@@ -25,7 +25,6 @@ export class ChromeTestConductor extends TestConductor {
         args: [
             '--no-sandbox',
             '--disable-gpu',
-            '--headless',
         ],
     })
 
