@@ -12,6 +12,13 @@ export class ChromeTestConductor extends TestConductor {
         setupFiles: URL[] = [],
         coverageVar = '__coverage__',
         errorStackResolver = new ErrorStackResolver([]),
+        readonly browser = puppeteer.launch({
+            executablePath: '/usr/bin/chromium',
+            args: [
+                '--no-sandbox',
+                '--disable-gpu',
+            ],
+        }),
     ) {
         super(title, setupFiles, coverageVar)
 
@@ -19,14 +26,6 @@ export class ChromeTestConductor extends TestConductor {
     }
 
     readonly reporterServer: HttpReporterServer
-    readonly browser = puppeteer.launch({
-        dumpio: true,
-        executablePath: '/usr/bin/chromium',
-        args: [
-            '--no-sandbox',
-            '--disable-gpu',
-        ],
-    })
 
     async close(): Promise<void> {
         await Promise.all([

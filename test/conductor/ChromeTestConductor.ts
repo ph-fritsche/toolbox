@@ -61,6 +61,7 @@ test('conduct test', async () => {
 
     await suite.exec()
 
+    expect(Array.from(suite.errors)).toEqual([])
     expect(getTestFunction(suite, 1)).toHaveProperty('title', 'some test')
     expect(getTestFunction(suite, 1).result.get()).toHaveProperty('type', 'success')
     expect(getTestFunction(suite, 2)).toHaveProperty('title', 'failing test')
