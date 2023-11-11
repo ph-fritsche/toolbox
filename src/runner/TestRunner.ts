@@ -24,6 +24,7 @@ export class TestRunner {
         public setTimeout: (callback: () => void, ms?: number) => number = globalThis.setTimeout,
         readonly context: object = globalThis,
         readonly loader: Loader = Loader,
+        readonly clock = () => performance.now(),
     ) {}
 
     async run(
@@ -144,7 +145,7 @@ export class TestRunner {
 
     protected async execTest(test: TestFunction) {
         const timeout = test.timeout ?? 5000
-        const t0 = performance.now()
+        const t0 = this.clock()
         let timer: number|undefined
         let reject: () => void = () => void 0
         try {
@@ -156,10 +157,10 @@ export class TestRunner {
                 }),
                 test.callback.call(test),
             ])
-            const duration = performance.now() - t0
+            const duration = this.clock() - t0
             return new TestResult(test, undefined, duration)
         } catch (e) {
-            const duration = performance.now() - t0
+            const duration = this.clock() - t0
             return new TestResult(test, this.normalizeError(e), duration)
         } finally {
             reject()

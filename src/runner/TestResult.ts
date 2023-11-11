@@ -20,7 +20,7 @@ export class TestResult {
             return TestResultType.timeout
         } else if (this.error) {
             return TestResultType.fail
-        } else if (this.duration) {
+        } else if (this.duration !== undefined) {
             return TestResultType.success
         } else {
             return TestResultType.skipped

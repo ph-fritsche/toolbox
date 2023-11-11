@@ -3,6 +3,7 @@ import { Loader, Reporter, TestRunner } from '#src/runner'
 
 function setupTestRunner(
     moduleMocks: {[k: string]: () => void|Promise<void>},
+    clock?: () => number,
 ) {
     const context = {} as TestContext
     const setTimeout = (f: () => void, t?: number) => globalThis.setTimeout(f, t) as unknown as number
@@ -21,7 +22,7 @@ function setupTestRunner(
             throw new Error('Module not found')
         }
     })
-    const runner = new TestRunner(reporter, setTimeout, context, loader)
+    const runner = new TestRunner(reporter, setTimeout, context, loader, clock)
 
     return {
         runner,
@@ -153,6 +154,22 @@ test('skip test', async () => {
     expect(getReports('result')).toEqual([
         { nodeId: 1, type: 'skipped'},
         { nodeId: 2, type: 'success', duration: expect.any(Number)},
+    ])
+})
+
+test('report result with halted clock', async () => {
+    const {context, runner, getReports} = setupTestRunner({
+        'test://foo.js': () => {
+            context.test('some test', () => void 0)
+            context.test('failed test', () => { throw 'foo' })
+        },
+    }, () => 123)
+
+    await runner.run([], 'test://foo.js')
+
+    expect(getReports('result')).toEqual([
+        { nodeId: 1, type: 'success', duration: 0},
+        { nodeId: 2, type: 'fail', error: 'foo', duration: 0},
     ])
 })
 
