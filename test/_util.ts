@@ -11,3 +11,19 @@ afterEach(async () => {
         return r
     }))
 })
+
+export function observePromise(promise: Promise<unknown>) {
+    let state: 'resolved'|'rejected'|'pending' = 'pending'
+    promise.then(
+        () => { state = 'resolved'},
+        () => { state = 'rejected'},
+    )
+    return {
+        get promise() {
+            return promise
+        },
+        get state() {
+            return state
+        },
+    }
+}

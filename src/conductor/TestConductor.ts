@@ -1,3 +1,4 @@
+import { AbortablePromise } from '../util/AbortablePromise'
 import { TestReporter } from './TestReporter'
 
 export abstract class TestConductor {
@@ -31,5 +32,6 @@ export abstract class TestConductor {
         reporter: TestReporter,
         suiteUrl: string,
         filter?: RegExp,
-    ): Promise<void>
+        abortController?: AbortController,
+    ): AbortablePromise<void>
 }

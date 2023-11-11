@@ -88,9 +88,9 @@ test('events bubble', async () => {
 })
 
 test('run test suite', async () => {
-    const { conductor, runTestSuite } = setupDummyConductor('A')
+    const { conductor, runTestSuite, runTestSuiteExecutor } = setupDummyConductor('A')
     const runTestSuitePromise = promise<void>()
-    runTestSuite.mockReturnValue(runTestSuitePromise.Promise)
+    runTestSuiteExecutor.mockImplementation(r => void runTestSuitePromise.Promise.then(r))
     const runStack = createTestRun([conductor], [{url: 'test://foo.js', title: 'foo'}])
     const onStart = mock.fn()
     runStack.addListener('start', onStart)
@@ -114,6 +114,7 @@ test('run test suite', async () => {
         }),
         'test://foo.js',
         /some filter/,
+        undefined,
     )
 
     runTestSuitePromise.resolve()
@@ -125,7 +126,8 @@ test('run test suite', async () => {
 })
 
 test('prevent reporting on non-running suite', async () => {
-    const suite = setupDummySuite()
+    const {suite, runTestSuiteExecutor} = setupDummySuite()
+    runTestSuiteExecutor.mockImplementation(r => r())
 
     expect(() => getSuiteReporter(suite).schedule({nodes: []})).toThrow('pending')
     expect(() => getSuiteReporter(suite).error({error: ''})).toThrow('pending')
@@ -141,7 +143,7 @@ test('prevent reporting on non-running suite', async () => {
 })
 
 test('skip suite', async () => {
-    const suite = setupDummySuite()
+    const {suite} = setupDummySuite()
     const onSkip = mock.fn()
     suite.addListener('skip', onSkip)
 
@@ -153,8 +155,28 @@ test('skip suite', async () => {
     expect(onSkip).toBeCalledWith({type: 'skip', node: suite})
 })
 
+test('abort suite', async () => {
+    const {suite, runTestSuiteExecutor} = setupDummySuite()
+    runTestSuiteExecutor.mockImplementation(() => void 0)
+    const onSkip = mock.fn()
+    suite.addListener('skip', onSkip)
+
+    expect(suite.state).toBe('pending')
+
+    const execPromise = suite.exec()
+
+    expect(suite.state).toBe('running')
+    expect(runTestSuiteExecutor).toBeCalled()
+
+    execPromise.abort()
+    await expect(execPromise).rejects.toBe(execPromise.signal)
+
+    expect(suite.state).toBe('skipped')
+    expect(onSkip).toBeCalledWith({type: 'skip', node: suite})
+})
+
 test('schedule nodes', async () => {
-    const suite = setupRunningSuite()
+    const {suite} = setupRunningSuite()
     const onSchedule = mock.fn()
     suite.addListener('schedule', onSchedule)
 
@@ -199,7 +221,7 @@ test('schedule nodes', async () => {
 })
 
 test('schedule multiple nodes with same title', async () => {
-    const suite = setupRunningSuite()
+    const {suite} = setupRunningSuite()
 
     getSuiteReporter(suite).schedule({nodes: [
         {id: 1, title: 'Foo'},
@@ -219,7 +241,7 @@ test('schedule multiple nodes with same title', async () => {
 })
 
 test('throw error when scheduling node id twice', async () => {
-    const suite = setupRunningSuite()
+    const {suite} = setupRunningSuite()
 
     expect(() => getSuiteReporter(suite).schedule({nodes: [
         {id: 1, title: 'Foo'},
@@ -228,7 +250,7 @@ test('throw error when scheduling node id twice', async () => {
 })
 
 test('report errors', async () => {
-    const suite = setupRunningSuite()
+    const {suite} = setupRunningSuite()
     const group = TestGroup.create(suite, 123, 'some group', 'ident')
     const onSuiteError = mock.fn()
     suite.addListener('error', onSuiteError)
@@ -254,14 +276,14 @@ test('report errors', async () => {
 })
 
 test('throw error when reporting error on function', async () => {
-    const suite = setupRunningSuite()
+    const {suite} = setupRunningSuite()
     TestFunction.create(suite, 1, 'foo', 'foo')
 
     expect(() => getSuiteReporter(suite).error({nodeId: 1, error: ''})).toThrow('Can not add error')
 })
 
 test('report results', async () => {
-    const suite = setupRunningSuite()
+    const {suite} = setupRunningSuite()
     const testfunc = TestFunction.create(suite, 123, 'some test', 'ident')
     const onResult = mock.fn()
     testfunc.addListener('result', onResult)
@@ -277,14 +299,14 @@ test('report results', async () => {
 })
 
 test('throw error when reporting result on group', async () => {
-    const suite = setupRunningSuite()
+    const {suite} = setupRunningSuite()
     TestGroup.create(suite, 1, 'foo', 'ident')
 
     expect(() => getSuiteReporter(suite).result({nodeId: 1, type: TestResultType.skipped})).toThrow('Can not add result')
 })
 
 test('report coverage', async () => {
-    const suite = setupRunningSuite()
+    const {suite} = setupRunningSuite()
     const onComplete = mock.fn()
     suite.addListener('complete', onComplete)
     const coverage: CoverageMapData = {}

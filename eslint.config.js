@@ -9,6 +9,12 @@ export default [
         return x
     }),
     {
+        files: ['**/*.ts'],
+        rules: {
+            'no-dupe-class-members': 0,
+        },
+    },
+    {
         files: ['test/**'],
         rules: {
             '@typescript-eslint/no-non-null-assertion': 0,

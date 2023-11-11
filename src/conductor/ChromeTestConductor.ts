@@ -1,8 +1,9 @@
-import puppeteer from 'puppeteer-core'
+import puppeteer, { Page } from 'puppeteer-core'
 import { TestConductor } from './TestConductor'
 import { HttpReporterServer } from './HttpReporterServer'
 import { TestReporter } from './TestReporter'
 import { ErrorStackResolver } from './ErrorStackResolver'
+import { AbortablePromise } from '../util/AbortablePromise'
 
 export class ChromeTestConductor extends TestConductor {
     constructor(
@@ -33,12 +34,28 @@ export class ChromeTestConductor extends TestConductor {
         ])
     }
 
-    async runTestSuite(
+    runTestSuite(
+        reporter: TestReporter,
+        suiteUrl: string,
+        filter?: RegExp,
+        abortController: AbortController = new AbortController(),
+    ) {
+        return new AbortablePromise<void>(abortController, (resolve, reject, onTeardown) => {
+            this.browser.then(browser => browser.newPage().then(page => {
+                onTeardown(function() {
+                    return page.close({runBeforeUnload: !!arguments.length})
+                })
+                return this.execTestSuiteInPage(page, reporter, suiteUrl, filter)
+            })).then(resolve, reject)
+        })
+    }
+
+    protected async execTestSuiteInPage(
+        page: Page,
         reporter: TestReporter,
         suiteUrl: string,
         filter?: RegExp,
     ) {
-        const page = await (await this.browser).newPage()
         page.setDefaultNavigationTimeout(600000)
 
         const callbackPrefix = '__CHROMETESTCONDUCTOR_CALLBACK_'
@@ -81,7 +98,5 @@ await ((async () => {
         await page.setContent(`<html><head><script type="module">${childCode}</script>`)
 
         await donePromise
-
-        await page.close()
     }
 }

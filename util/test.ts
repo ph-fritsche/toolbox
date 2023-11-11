@@ -23,7 +23,6 @@ const sourceProvider = new SourceProvider([
 const coverageVariable = '__covSelf__'
 
 const reporter = new ConsoleReporter()
-reporter.config.done = true
 
 const PROJECT_ROOT_PATH = path.resolve(path.dirname(url.fileURLToPath(import.meta.url)), `../`)
 const PROJECT_ROOT_URL = 'file://' + PROJECT_ROOT_PATH
@@ -37,6 +36,8 @@ const conductor = new NodeTestConductor(
 conductor.loaders = [
     `${PROJECT_ROOT_URL}/src/conductor/node/loader-src.js`,
 ]
+
+const manager = new TestRunManager()
 
 sourceProvider.setListener(async (files) => {
     const testFiles = Array.from(files.keys())
@@ -57,8 +58,9 @@ sourceProvider.setListener(async (files) => {
     const run = createTestRun([conductor], testFiles)
     reporter.connect(run)
 
-    const manager = new TestRunManager()
     await manager.exec(TestRunIterator.iterateConductorsBySuites(run))
+        .finally(() => reporter.disconnect(run))
+        .catch(() => void 0)
 
     if (process.env.CI) {
         if (run.index.errors.size) {

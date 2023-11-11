@@ -127,17 +127,31 @@ export class TestSuite extends TestNodeInstance {
         this.state = TestRunState.skipped
     }
 
-    async exec(
+    exec(
         filter?: RegExp,
+        abortController?: AbortController,
     ) {
         this.assertRunState(TestRunState.pending)
 
         this.state = TestRunState.running
 
-        await this.run.conductor.runTestSuite(this.getReporter(), this.url, filter)
-            .catch(e => this.reportError({error: e instanceof Error ? e : String(e)}))
+        const promise = this.run.conductor.runTestSuite(this.getReporter(), this.url, filter, abortController)
 
-        this.state = TestRunState.done
+        promise.then(
+            () => {
+                this.state = TestRunState.done
+            },
+            e => {
+                if (e === promise.signal) {
+                    this.state = TestRunState.skipped
+                } else {
+                    this.reportError({error: e instanceof Error ? e : String(e)})
+                    this.state = TestRunState.done
+                }
+            },
+        )
+
+        return promise
     }
 
     protected getReporter(): TestReporter {
