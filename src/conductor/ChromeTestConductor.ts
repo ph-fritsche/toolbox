@@ -14,6 +14,7 @@ export class ChromeTestConductor extends TestConductor {
         errorStackResolver = new ErrorStackResolver([]),
         readonly browser = puppeteer.launch({
             executablePath: '/usr/bin/chromium',
+            headless: 'new',
             args: [
                 '--no-sandbox',
                 '--disable-gpu',
