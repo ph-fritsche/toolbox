@@ -8,8 +8,8 @@ import { createTestRun } from '#src/conductor/TestRun'
 import { NodeTestConductor } from '#src/conductor/NodeTestConductor'
 import { getTestFunction } from './_helper'
 
-let runnerModule = ''
-beforeEach(async () => {
+let fileServer: HttpFileServer
+beforeAll(async () => {
     const build = await rollup({
         input: './src/runner/index.ts',
         plugins: [
@@ -19,28 +19,27 @@ beforeEach(async () => {
         ],
     })
     const {output} = await build.generate({})
-    runnerModule = output[0].code
-})
+    const runnerModule = output[0].code
 
-async function setupConductor() {
-    const fileServer = new HttpFileServer(
+    fileServer = new HttpFileServer(
         new FileProvider(import.meta.url, new Map([
             ['runner.js', Promise.resolve({content: runnerModule})],
         ])),
     )
+    await fileServer.url
+})
+afterAll(() => fileServer.close())
+
+async function setupConductor() {
     const conductor = new NodeTestConductor(`${String(await fileServer.url)}runner.js`)
 
-    afterThis(() => fileServer.close())
     afterThis(() => conductor.close())
 
-    return {
-        fileServer,
-        conductor,
-    }
+    return {conductor}
 }
 
 test('conduct test', async () => {
-    const { conductor, fileServer } = await setupConductor()
+    const { conductor } = await setupConductor()
     fileServer.provider.files.set('some/test.js', Promise.resolve({content: `
         test('some test', () => {});
         test('failing test', () => { throw new Error('some error') });
@@ -59,7 +58,7 @@ test('conduct test', async () => {
 })
 
 test('abort test', async () => {
-    const { conductor, fileServer } = await setupConductor()
+    const { conductor } = await setupConductor()
     fileServer.provider.files.set('some/test.js', Promise.resolve({content: `
         test('some test', () => {});
         test('aborted test', () => new Promise(r => setTimeout(r, 10000)));
