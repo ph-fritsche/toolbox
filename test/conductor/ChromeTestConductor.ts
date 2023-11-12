@@ -41,7 +41,7 @@ async function setupConductor() {
 test('launch browser', async () => {
     const {conductor} = await setupConductor()
     await conductor.browser
-})
+}, 30_000) // launching browser might be slow in CI
 
 test('conduct test', async () => {
     const {conductor} = await setupConductor()
