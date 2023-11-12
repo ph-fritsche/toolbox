@@ -15,9 +15,11 @@ export class ChromeTestConductor extends TestConductor {
         readonly browser = puppeteer.launch({
             executablePath: '/usr/bin/chromium',
             headless: 'new',
+            waitForInitialPage: false,
             args: [
                 '--no-sandbox',
                 '--disable-gpu',
+                '--no-startup-window',
             ],
         }),
     ) {

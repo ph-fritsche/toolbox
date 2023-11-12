@@ -62,7 +62,7 @@ test('conduct test', async () => {
     expect(getTestFunction(suite, 2)).toHaveProperty('title', 'failing test')
     expect(getTestFunction(suite, 2).result.get()).toHaveProperty('type', 'fail')
 
-    expect((await (await conductor.browser).pages()).length).toBe(1) // there is always at least one page
+    expect((await (await conductor.browser).pages()).length).toBe(0)
 })
 
 test('abort test', async () => {
