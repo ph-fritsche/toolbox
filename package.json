@@ -46,9 +46,10 @@
     },
     "type": "module",
     "scripts": {
-        "build": "scripts ts-build2 && cp src/conductor/node/experimental.cjs dist/conductor/node/experimental.cjs",
-        "dev": "node --require ./util/dev.cjs --require ./src/conductor/node/experimental.cjs --experimental-loader ./src/conductor/node/loader-src.js --experimental-import-meta-resolve --enable-source-maps --watch",
-        "test": "node --require ./src/conductor/node/experimental.cjs --experimental-loader ./src/conductor/node/loader-src.js --experimental-import-meta-resolve --enable-source-maps ./util/test.ts",
+        "build": "scripts ts-build2 && cp src/node/experimental.cjs dist/node/experimental.cjs && cp src/node/loader-netlocal.js dist/node/loader-netlocal.js",
+        "dev": "node --require ./util/devenv.cjs --require ./src/node/experimental.cjs --experimental-loader ./build/loader-src.js --experimental-import-meta-resolve --enable-source-maps --watch",
+        "setup": "node ./util/setup.js",
+        "test": "node --require ./src/node/experimental.cjs --experimental-loader ./build/loader-src.js --experimental-import-meta-resolve --enable-source-maps ./util/test.ts",
         "typecheck": "tsc && tsc -p test/tsconfig.json",
         "lint": "eslint ."
     },

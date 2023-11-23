@@ -30,11 +30,11 @@ const PROJECT_ROOT_URL = 'file://' + PROJECT_ROOT_PATH
 const conductor = new NodeTestConductor(
     `${PROJECT_ROOT_URL}/src/runner/index.ts`,
     undefined,
-    [new URL(PROJECT_ROOT_URL + '/util/setup.ts')],
+    [new URL(PROJECT_ROOT_URL + '/util/testenv.ts')],
     coverageVariable,
 )
 conductor.loaders = [
-    `${PROJECT_ROOT_URL}/src/conductor/node/loader-src.js`,
+    `${PROJECT_ROOT_URL}/build/loader-src.js`,
 ]
 
 const manager = new TestRunManager()

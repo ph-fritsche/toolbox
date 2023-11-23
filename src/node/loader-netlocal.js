@@ -5,7 +5,7 @@
 import process from 'node:process'
 
 /**
- * @type {NodeJSLoader.Resolver}
+ * @type NodeJSLoader.Resolver
  */
 export const resolve = async (specifier, context, nextResolve) => {
     if (context.parentURL?.startsWith('http://127.0.0.1:')) {

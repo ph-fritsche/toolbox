@@ -13,7 +13,7 @@ if (!import.meta.resolve) {
 }
 const nodeFetchUrl = await import.meta.resolve('node-fetch', import.meta.url)
 
-const loaderPath = path.dirname(url.fileURLToPath(import.meta.url)) + '/node'
+const loaderPath = path.dirname(url.fileURLToPath(import.meta.url)) + '/../node'
 
 export class NodeTestConductor extends TestConductor {
     constructor(

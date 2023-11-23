@@ -49,7 +49,7 @@ test('conduct test', async () => {
     const run = createTestRun([conductor], [{url: suiteUrl, title: 'some test'}])
     const suite = run.runs.get(conductor)!.suites.get(suiteUrl)!
 
-    await suite.exec()
+    await expect(suite.exec()).resolves.toBe(undefined)
 
     expect(getTestFunction(suite, 1)).toHaveProperty('title', 'some test')
     expect(getTestFunction(suite, 1).result.get()).toHaveProperty('type', 'success')

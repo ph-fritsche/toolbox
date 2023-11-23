@@ -4,10 +4,7 @@
 
 import module from 'node:module'
 
-/**
- * @type {NodeJSLoader.Resolver}
- */
-export const resolve = async (specifier, context, nextResolve) => {
+export const resolve: NodeJSLoader.Resolver = async (specifier, context, nextResolve) => {
     const id = specifier.startsWith('node:') ? specifier.substring(5) : specifier
     if (module.builtinModules.includes(id)) {
         return {

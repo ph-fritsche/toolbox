@@ -27,6 +27,7 @@ jobs:
           yarn-
     - run: yarn install --frozen-lockfile
     - run: yarn lint
+    - run: yarn setup
     - run: yarn test
     - uses: codecov/codecov-action@v3
       with:
