@@ -1,5 +1,5 @@
 import { EventEmitter } from '../event'
-import { FileProvider } from './FileProvider'
+import { FileProvider } from '../files'
 
 export type FileServerEventMap = unknown
 

@@ -1,12 +1,10 @@
 import path from 'node:path'
 import fetch from 'node-fetch'
 import IstanbulLibCoverage, {CoverageMapData} from 'istanbul-lib-coverage'
-import IstanbulLibReport from 'istanbul-lib-report'
-import IstanbulFileWriter from 'istanbul-lib-report/lib/file-writer.js'
-import IstanbulReports from 'istanbul-reports'
 import IstanbulLibSourceMap from 'istanbul-lib-source-maps'
 import {createProjectBuildProvider} from '#src'
 
+const fixturesPath = path.resolve('./test/_fixtures/src')
 describe('build fixture src', () => {
     const {
         buildProvider,
@@ -14,9 +12,8 @@ describe('build fixture src', () => {
         fileServer,
         onBuildDone,
     } = createProjectBuildProvider([
-        path.resolve('./test/_fixtures/src'),
+        fixturesPath,
     ], {
-        tsConfigFile: './tsconfig.json',
     })
 
     afterAll(async () => {
@@ -52,7 +49,7 @@ describe('build fixture src', () => {
     })
 
     test('serve instrumented code', async () => {
-        const f = `${fileProvider.origin}/test/_fixtures/src/typescript.ts`
+        const f = `${fixturesPath}/typescript.ts`
         const cov = (globalThis as {__coverage__?: CoverageMapData}).__coverage__
         expect(cov).toBeInstanceOf(Object)
         expect(cov?.[f]).toBeInstanceOf(Object)
@@ -60,36 +57,11 @@ describe('build fixture src', () => {
         const coverageMap = IstanbulLibCoverage.createCoverageMap(cov)
         const sourceStore = IstanbulLibSourceMap.createSourceMapStore({})
         const coverageRemap = await sourceStore.transformCoverage(coverageMap)
-        const context = IstanbulLibReport.createContext({
-            coverageMap: coverageRemap,
-            dir: fileProvider.origin,
-            defaultSummarizer: 'nested',
-            sourceFinder: s => sourceStore.sourceFinder(s),
+        expect(coverageRemap.fileCoverageFor(f).getLineCoverage()).toEqual({
+            4: 1,
+            5: 0,
+            7: 1,
+            12: 0,
         })
-
-        expect(coverageRemap.fileCoverageFor(f).getUncoveredLines()).toEqual([
-            '5',
-            '12',
-        ])
-
-        expect(getTextReport(context)).toEqual(`
----------------|---------|----------|---------|---------|-------------------
-File           | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s 
----------------|---------|----------|---------|---------|-------------------
-All files      |      50 |       50 |      50 |      50 |                   
- typescript.ts |      50 |       50 |      50 |      50 | 5,12              
----------------|---------|----------|---------|---------|-------------------
-        `.trim())
     })
 })
-
-function getTextReport(
-    context: IstanbulLibReport.Context,
-) {
-    IstanbulFileWriter.startCapture()
-    IstanbulReports.create('text').execute(context)
-    IstanbulFileWriter.stopCapture()
-    const report: string = IstanbulFileWriter.getOutput()
-    IstanbulFileWriter.resetOutput()
-    return report.trim()
-}

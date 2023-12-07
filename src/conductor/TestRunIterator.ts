@@ -1,15 +1,14 @@
 import { TestNodeInstance, TestNodeStack, TestRunStack } from './TestRun'
 
-export class TestRunIterator {
-    static *ancestors<T extends TestNodeInstance|TestNodeStack>(
+export const TestRunIterator = {
+    ancestors: function* <T extends TestNodeInstance|TestNodeStack>(
         node: T,
     ) {
         for (let el: T|undefined = node; el; el = el.parent as T|undefined) {
             yield el
         }
-    }
-
-    static *stackTree(
+    },
+    stackTree: function* (
         nodes: Iterable<TestNodeStack>,
     ): Generator<TestNodeStack> {
         for (const n of nodes) {
@@ -18,9 +17,8 @@ export class TestRunIterator {
                 yield* this.stackTree(n.children.values())
             }
         }
-    }
-
-    static *instanceTree(
+    },
+    instanceTree: function* (
         nodes: Iterable<TestNodeInstance>,
     ): Generator<TestNodeInstance> {
         for (const n of nodes) {
@@ -29,9 +27,8 @@ export class TestRunIterator {
                 yield* this.instanceTree(n.children.values())
             }
         }
-    }
-
-    static *iterateSuitesByConductors(
+    },
+    iterateSuitesByConductors: function* (
         runStack: TestRunStack,
     ) {
         for (const r of runStack.runs.values()) {
@@ -39,9 +36,8 @@ export class TestRunIterator {
                 yield s
             }
         }
-    }
-
-    static *iterateConductorsBySuites(
+    },
+    iterateConductorsBySuites: function* (
         runStack: TestRunStack,
     ) {
         for (const s of runStack.suites.values()) {
@@ -49,5 +45,5 @@ export class TestRunIterator {
                 yield r
             }
         }
-    }
+    },
 }

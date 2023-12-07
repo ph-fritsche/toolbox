@@ -1,6 +1,6 @@
 import { TsModuleResolver } from '#src/ts'
 import ts from 'typescript'
-import { setupFilesystemMock } from './_helper'
+import { setupFilesystemMock } from '../_fsMock'
 
 test('resolve imports', () => {
     const fs = setupFilesystemMock({

@@ -6,7 +6,8 @@ import path from 'node:path'
 import { URL, fileURLToPath, pathToFileURL } from 'node:url'
 import ts from 'typescript'
 import { transform } from '@swc/core'
-import { CachedFilesystem, TsConfigResolver, TsModuleResolver } from '../ts'
+import { TsConfigResolver, TsModuleResolver } from '../ts'
+import { CachedFilesystem } from '../files'
 
 const PARAM_INSTRUMENT_COVERAGE_VAR = 'coverage'
 

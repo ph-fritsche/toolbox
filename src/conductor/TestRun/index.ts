@@ -1,5 +1,5 @@
 export type { TestNodeStack, TestNodeInstance } from './TestNode'
-export type { TestRunStack, TestRunInstance} from './TestRun'
+export type { TestRunStack, TestRunInstance, TestFile } from './TestRun'
 export type { TestSuite, TestSuiteStack } from './TestSuite'
 export type { TestGroup } from './TestGroup'
 export type { TestHook } from './TestHook'

@@ -1,5 +1,5 @@
 import { TsConfigResolver } from '#src/ts'
-import { setupFilesystemMock } from './_helper'
+import { setupFilesystemMock } from '../_fsMock'
 
 test('find closest config', () => {
     const fs = setupFilesystemMock({

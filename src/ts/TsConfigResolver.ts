@@ -1,10 +1,10 @@
 import path from 'node:path'
 import ts from 'typescript'
-import { Filesystem } from './Filesystem'
+import { SyncFilesystem } from '../files/Filesystem'
 
 export class TsConfigResolver {
     constructor(
-        protected readonly fs: Filesystem,
+        protected readonly fs: SyncFilesystem,
     ) {
         this.tsResolutionHost = {
             fileExists: s => this.fs.existsSync(s),

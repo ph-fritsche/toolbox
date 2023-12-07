@@ -1,6 +1,16 @@
 import path from 'path'
 import { Builder, BuildProvider, connectDependencyBuilder, createDependencyBuilder, createNodePolyfillBuilder, createSourceBuilder } from './builder'
-import { FileProvider, FileServer, FsFileProvider, HttpFileServer } from './server'
+import { FileServer, HttpFileServer } from './server'
+import { AsyncFilesystem, CachedFilesystem, FileLoader, FileProvider, FsFileProvider, FsWatcher, realFilesystem, SyncFilesystem } from './files'
+import { TestConductor } from './conductor/TestConductor'
+import { TestRunManager } from './conductor/TestRunManager'
+import { TsConfigResolver, TsModuleResolver } from './ts'
+import { ModuleLoader } from './loader/ModuleLoader'
+import { ImportResolverStack, constrainResolver, createNodeBuiltinResolver, createNodeImportResolver, createToRelativeResolver, createTsResolver, ImportResolverCallback } from './loader/ImportResolver'
+import { createTestRun, TestFile, TestRunStack, TestSuite } from './conductor/TestRun'
+import { TestRunIterator } from './conductor/TestRunIterator'
+import { Trigger } from './util/Trigger'
+import { ConsoleReporter } from './reporter/ConsoleReporter'
 
 export type { TestContext } from './runner/TestContext'
 
@@ -27,9 +37,8 @@ export async function serveToolboxRunner() {
 export function createProjectBuildProvider(
     watchedFiles: string[],
     {
-        tsConfigFile,
         globals,
-        sourceBuilderFactory = () => createSourceBuilder({tsConfigFile, globals}),
+        sourceBuilderFactory = () => createSourceBuilder({globals}),
         dependencyBuilderFactory = (source) => {
             const b = createDependencyBuilder({globals})
             connectDependencyBuilder(source, b)
@@ -43,7 +52,6 @@ export function createProjectBuildProvider(
         fileProviderFactory = () => new FileProvider(),
         fileServerFactory = (provider) => new HttpFileServer(provider),
     }: {
-        tsConfigFile: string,
         globals?: Record<string, string>,
         sourceBuilderFactory?: () => Builder,
         dependencyBuilderFactory?: (source: Builder) => Builder,

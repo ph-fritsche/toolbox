@@ -74,7 +74,7 @@ export class Builder {
             entryFileNames: (outputOptions?.preserveModules ?? true)
                 ? undefined
                 : preserveEntryFileNames(basePath),
-            sourcemap: true,
+            sourcemap: 'inline',
             paths: (id: string) => {
                 if (id.startsWith('.')) {
                     return id
@@ -302,7 +302,7 @@ function setOutputFiles(
             map.set(f.fileName, {
                 moduleId: f.facadeModuleId,
                 isEntry: f.isEntry,
-                content: `${f.code}\n//# sourceMappingURL=${String(f.map?.toUrl())}`,
+                content: f.code,
             })
         } else {
             map.set(f.fileName, {

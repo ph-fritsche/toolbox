@@ -1,5 +1,5 @@
 import {createServer, IncomingMessage, ServerResponse} from 'http'
-import { FileProvider } from './FileProvider'
+import { FileProvider } from '../files'
 import { FileServer, FileServerEventMap } from './FileServer'
 import { getEventDispatch } from '../event'
 
@@ -22,13 +22,17 @@ export class HttpFileServer extends FileServer<HttpFileServerEventMap> {
     // eslint-disable-next-line @typescript-eslint/no-misused-promises
     readonly server = createServer(async (req, res) => {
         if (req.method === 'GET') {
-            const [subpath] = (req.url?.startsWith('/') ? req.url.substring(1) : '').split(':')
-            const file = subpath ? this.provider.getFile(subpath) : Promise.reject()
+            // When following an error stack in IDE there is a code position attached
+            const [path, /* line */, /* column */] = (req.url || '/').split(':')
+            const subpath =  path.substring((await this.url).pathname.length)
+            const file = subpath ? this.provider.get(subpath) : Promise.reject()
             await file.then(
-                ({content}) => {
+                ({content, mimeType}) => {
                     const queryPos = subpath.indexOf('?')
                     const filename = subpath.substring(0, queryPos >= 0 ? queryPos : undefined)
-                    if (filename.endsWith('.js')) {
+                    if (mimeType) {
+                        res.setHeader('Content-Type', mimeType)
+                    } else if (filename.endsWith('.js')) {
                         res.setHeader('Content-Type', 'text/javascript')
                     }
                     res.setHeader('Access-Control-Allow-Origin', '*')

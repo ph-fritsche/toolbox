@@ -1,4 +1,4 @@
-import { Filesystem } from './Filesystem'
+import { SyncFilesystem } from './Filesystem'
 
 class CachedError {
     constructor(
@@ -6,9 +6,9 @@ class CachedError {
     ) {}
 }
 
-export class CachedFilesystem implements Filesystem {
+export class CachedFilesystem implements SyncFilesystem {
     constructor(
-        protected readonly filesystem: Filesystem,
+        protected readonly filesystem: SyncFilesystem,
     ) {}
     protected resolveCache: Record<string, string> = {}
     protected existsCache: Record<string, boolean> = {}

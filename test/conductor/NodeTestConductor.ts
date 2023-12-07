@@ -1,5 +1,5 @@
-import { FileProvider } from '#src/server/FileProvider'
-import { HttpFileServer } from '#src/server/HttpFileServer'
+import { CachedFilesystem, FileProvider, realFilesystem } from '#src/files'
+import { HttpFileServer } from '#src/server'
 import { rollup } from 'rollup'
 import { afterThis } from '#test/_util'
 import { createNodeResolvePlugin, createTsResolvePlugin } from '#src/builder/plugins/resolve'
@@ -7,13 +7,15 @@ import { createTransformPlugin } from '#src/builder/plugins/transform'
 import { createTestRun } from '#src/conductor/TestRun'
 import { NodeTestConductor } from '#src/conductor/NodeTestConductor'
 import { getTestFunction } from './_helper'
+import { TsConfigResolver, TsModuleResolver } from '#src/ts'
 
 let fileServer: HttpFileServer
 beforeAll(async () => {
+    const cachedFs = new CachedFilesystem(realFilesystem)
     const build = await rollup({
         input: './src/runner/index.ts',
         plugins: [
-            createTsResolvePlugin({}),
+            createTsResolvePlugin(new TsConfigResolver(cachedFs), new TsModuleResolver(cachedFs)),
             createNodeResolvePlugin(),
             createTransformPlugin({}),
         ],
@@ -22,7 +24,7 @@ beforeAll(async () => {
     const runnerModule = output[0].code
 
     fileServer = new HttpFileServer(
-        new FileProvider(import.meta.url, new Map([
+        new FileProvider([], new Map([
             ['runner.js', Promise.resolve({content: runnerModule})],
         ])),
     )
@@ -44,7 +46,7 @@ test('conduct test', async () => {
         test('some test', () => {});
         test('failing test', () => { throw new Error('some error') });
     `}))
-    const suiteUrl = String(await fileServer.url) + '/some/test.js'
+    const suiteUrl = String(await fileServer.url) + 'some/test.js'
 
     const run = createTestRun([conductor], [{url: suiteUrl, title: 'some test'}])
     const suite = run.runs.get(conductor)!.suites.get(suiteUrl)!
@@ -63,7 +65,7 @@ test('abort test', async () => {
         test('some test', () => {});
         test('aborted test', () => new Promise(r => setTimeout(r, 10000)));
     `}))
-    const suiteUrl = String(await fileServer.url) + '/some/test.js'
+    const suiteUrl = String(await fileServer.url) + 'some/test.js'
 
     const run = createTestRun([conductor], [{url: suiteUrl, title: 'some test'}])
     const suite = run.runs.get(conductor)!.suites.get(suiteUrl)!

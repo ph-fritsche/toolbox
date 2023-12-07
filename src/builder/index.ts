@@ -1,10 +1,10 @@
+import fsSync from 'node:fs'
+import os from 'node:os'
 import { OutputOptions } from 'rollup'
 import createCjsPlugin from '@rollup/plugin-commonjs'
 import createNodeBuiltinsPlugin from 'rollup-plugin-node-builtins'
-import { parseTsConfig } from './tsconfig'
 import { createTsResolvePlugin, createNodeResolvePlugin, createNodeCoreResolvePlugin } from './plugins/resolve'
 import { createTransformPlugin } from './plugins/transform'
-import { createIstanbulPlugin } from './plugins/instrument'
 import { createNodeCoreEntryFileNames, createNodeCorePaths, createNodePolyfillPlugin, createNodeReexportPlugin } from './plugins/node'
 import { Builder } from './Builder'
 import { isBuiltin } from 'node:module'
@@ -12,6 +12,8 @@ import { createUndefinedPlugin } from './plugins/undefined'
 import { createCachePlugin, CachePluginOptions } from './plugins/cache'
 import { createJsonPlugin } from './plugins/json'
 import { createGlobalsPlugin } from './plugins/globals'
+import { CachedFilesystem, SyncFilesystem } from '../files'
+import { TsConfigResolver, TsModuleResolver } from '../ts'
 
 export { Builder } from './Builder'
 export type { OutputFilesMap } from './Builder'
@@ -19,26 +21,38 @@ export { BuildProvider } from './BuildProvider'
 
 export function createSourceBuilder(
     {
-        tsConfigFile,
+        coverageVariable = '__coverage__',
+        instrument = s => !/(^|\/)node_modules\//.test(s),
         globals,
+        fs = new CachedFilesystem({
+            caseSensitive: os.platform() !== 'win32',
+            existsSync: fsSync.existsSync,
+            readFileSync: fsSync.readFileSync,
+            realpathSync: fsSync.realpathSync,
+        }),
+        tsConfigResolver = new TsConfigResolver(fs),
+        tsModuleResolver = new TsModuleResolver(fs),
     }: {
-        tsConfigFile: string
-        globals?: OutputOptions['globals']
+        coverageVariable?: string
+        instrument?: (subPath: string) => boolean,
+        globals?: OutputOptions['globals'],
+        fs?: SyncFilesystem,
+        tsConfigResolver?: TsConfigResolver,
+        tsModuleResolver?: TsModuleResolver,
     },
     id = 'project',
 ) {
-    const { compilerOptions } = parseTsConfig(tsConfigFile)
-
     return new Builder({
         id,
         plugins: [
-            createTsResolvePlugin(compilerOptions),
+            createTsResolvePlugin(tsConfigResolver, tsModuleResolver),
             createNodeResolvePlugin(),
             createNodeCoreResolvePlugin(),
             createJsonPlugin(),
-            createTransformPlugin(compilerOptions),
+            createTransformPlugin({
+                coverageVariable: s => instrument(s) ? coverageVariable : undefined,
+            }),
             createGlobalsPlugin({globals}),
-            createIstanbulPlugin(),
         ],
         paths: createNodeCorePaths(),
         outputOptions: {

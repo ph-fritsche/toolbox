@@ -1,14 +1,19 @@
-import { CompilerOptions } from 'typescript'
 import { Plugin } from 'rollup'
-import { transform as swcTransform, Options as swcOptions } from '@swc/core'
+import { JscTarget, ParseOptions, transform } from '@swc/core'
 
 export function createTransformPlugin(
-    tsCompilerOptions: CompilerOptions,
+    {
+        cwd = process.cwd(),
+        coverageVariable: getCoverageVar,
+    }: {
+        cwd?: string,
+        coverageVariable?: (subPath: string) => string|undefined,
+    },
     name = 'script-transformer',
 ): Plugin {
     return {
         name,
-        async transform(code, id) {
+        async transform(source, id) {
             if (!/\.[jt]sx?(\?.*)?$/.test(id)
             // || id.includes('/node_modules/')
             ) {
@@ -18,30 +23,54 @@ export function createTransformPlugin(
                 return ''
             }
 
-            const options: swcOptions = {
-                sourceFileName: id,
+            const [path] = id.split(/\?#/, 1)
+            const subPath = path.startsWith(cwd + '/') ? path.substring(cwd.length + 1) : undefined
+
+            const coverageVariable = subPath && getCoverageVar?.(subPath)
+
+            const target: JscTarget = 'es2022'
+
+            const isTs = /\.tsx?/.test(path)
+            const parseOptions: ParseOptions = isTs
+                ? {
+                    syntax: 'typescript',
+                    tsx: path.endsWith('x'),
+                    target,
+                }
+                : {
+                    syntax: 'ecmascript',
+                    jsx: path.endsWith('x'),
+                    target,
+                }
+
+            const { code, map } = await transform(source, {
+                filename: path,
+                sourceFileName: path,
+                module: {
+                    type: 'es6',
+                    ignoreDynamic: true,
+                },
                 jsc: {
-                    externalHelpers: false,
-                    parser: {
-                        syntax: /\.tsx?$/.test(id) ? 'typescript' : 'ecmascript',
-                        jsx: id.endsWith('x'),
-                        tsx: id.endsWith('x'),
+                    target: 'es2022',
+                    parser: parseOptions,
+                    preserveAllComments: true,
+                    experimental: {
+                        plugins: coverageVariable
+                            ? [
+                                ['swc-plugin-coverage-instrument', {
+                                    coverageVariable,
+                                }],
+                            ]
+                            : [],
                     },
-                    target: 'es2019',
-                    transform: {
-                        react: {
-                            pragma: tsCompilerOptions.jsxFactory,
-                            pragmaFrag: tsCompilerOptions.jsxFragmentFactory,
-                        },
-                    },
-                    // Rollup produces invalid import paths that can't be resolved with this.
-                    // baseUrl: tsBaseUrl + '/',
-                    // paths: tsCompilerOptions.paths as Record<string, [string]>,
                 },
                 sourceMaps: true,
-            }
+            })
 
-            return swcTransform(code, options)
+            return {
+                code,
+                map,
+            }
         },
     }
 }

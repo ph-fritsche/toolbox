@@ -3,7 +3,10 @@ import { TestRunInstanceIndex, TestRunStackIndex } from './TestIndex'
 import { TestNodeInstance, TestNodeStack } from './TestNode'
 import { TestSuite, TestSuiteStack } from './TestSuite'
 
-type TestFile = {url: string, title: string}
+export type TestFile = {
+    url: string
+    title: string
+}
 
 export class TestRunStack extends TestNodeStack<TestRunInstance> {
     static create(

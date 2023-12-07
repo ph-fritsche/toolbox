@@ -1,5 +1,5 @@
-import { CachedFilesystem } from '#src/ts'
-import { setupFilesystemMock } from './_helper'
+import { CachedFilesystem } from '#src/files'
+import { setupFilesystemMock } from '../_fsMock'
 
 test('forward `caseSensitive`', () => {
     const fs = setupFilesystemMock({})
