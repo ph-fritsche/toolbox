@@ -38,9 +38,9 @@ export class HttpFileServer extends FileServer<HttpFileServerEventMap> {
                     res.setHeader('Access-Control-Allow-Origin', '*')
                     res.end(content)
                 },
-                () => {
+                (r) => {
                     res.writeHead(404, 'Not Found')
-                    res.end()
+                    res.end(String(r))
                 },
             )
         } else {
