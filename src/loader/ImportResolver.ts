@@ -162,7 +162,7 @@ export function createTsResolver(
  *
  * @see https://nodejs.org/api/esm.html#importmetaresolvespecifier
  */
-export async function createNodeImportResolver(): Promise<ImportResolverCallback> {
+export async function createNodeImportResolver(catchErrors = true): Promise<ImportResolverCallback> {
     // Requires experimental flag until node@20.6
     if (typeof import.meta.resolve !== 'function') {
         throw '`import.meta.resolve` is missing. Run with `--experimental-import-meta-resolve`.'
@@ -174,12 +174,42 @@ export async function createNodeImportResolver(): Promise<ImportResolverCallback
         throw '`import.meta.resolve` does not support second parameter. Run with `--experimental-import-meta-resolve`.'
     }
 
+    return async (resolved, specifier, importerUrl) => {
+        if (resolved) {
+            return undefined
+        }
+
+        try {
+            type R = (s: string, i: string) => Promise<string>|string
+            return await (import.meta.resolve as R)(specifier, String(importerUrl))
+        } catch(e) {
+            if (catchErrors) {
+                return undefined
+            }
+            throw e
+        }
+    }
+}
+
+/**
+ * Resolve per `require.resolve`
+ *
+ * @see https://nodejs.org/api/modules.html#requireresolverequest-options
+ */
+export function createNodeRequireResolver(catchErrors = true): ImportResolverCallback {
     return (resolved, specifier, importerUrl) => {
         if (resolved) {
             return undefined
         }
 
-        type R = (s: string, i: string) => Promise<string>|string
-        return (import.meta.resolve as R)(specifier, String(importerUrl))
+        const require = module.createRequire(importerUrl)
+        try {
+            return require.resolve(specifier)
+        } catch(e) {
+            if (catchErrors) {
+                return undefined
+            }
+            throw e
+        }
     }
 }

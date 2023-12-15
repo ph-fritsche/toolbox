@@ -1,17 +1,24 @@
-import { JscTarget, ParseOptions, parse, transform } from '@swc/core'
-import { AsyncFilesystem } from '../files/Filesystem'
+import swc from '@swc/core'
 import path from 'path'
 import { fileURLToPath, pathToFileURL } from 'url'
 import { File, FileLoader } from '../files'
 import { ImportResolver } from './ImportResolver'
+
+export interface ModuleTransformer {
+    transform(
+        module: swc.Module,
+        sourcePath: string,
+        type: 'typescript'|'ecmascript'|'commonjs'|'javascript',
+    ): Promise<swc.Module>|swc.Module
+}
 
 /**
  * Load and transform local TS/JS modules.
  */
 export class ModuleLoader implements FileLoader {
     constructor(
-        public readonly fs: AsyncFilesystem,
-        public readonly sourceRoot: string,
+        protected readonly readFile: (sourcePath: string) => Promise<string|Buffer>,
+        protected readonly sourceRoot: string,
         /**
          * Resolve a specifier from source to one that is supported by the target.
          *
@@ -21,11 +28,12 @@ export class ModuleLoader implements FileLoader {
          * If the code is to be used in a browser environment,
          * this should replace all imports of node built-ins with adequate polyfills.
          */
-        public readonly resolver: ImportResolver,
+        protected readonly resolver: ImportResolver,
         /**
          * The variable to collect coverage. If falsey, the code will not be instrumented.
          */
-        public readonly getCoverageVar: (subPath: string) => string|undefined,
+        protected readonly getCoverageVar: (subPath: string) => string|undefined,
+        protected readonly transformers: Iterable<ModuleTransformer> = [],
     ) {
         if (!path.isAbsolute(sourceRoot)) {
             throw new Error(`sourceRoot has to be an absolute path. Received "${sourceRoot}"`)
@@ -37,17 +45,17 @@ export class ModuleLoader implements FileLoader {
     async load(subPath: string): Promise<File|undefined> {
         const sourceUrl = new URL(this.sourceUrlRoot + subPath)
 
-        if (!/(?<!\.d)\.[tj]sx?$/.test(sourceUrl.pathname)) {
+        const type = this.getTypeFromExtension(sourceUrl.pathname)
+        if (type === 'unsupported' || type === 'declaration') {
             return undefined
         }
 
         const sourcePath = fileURLToPath(sourceUrl)
-        const content = await this.fs.readFile(sourcePath)
+        let sourceCode = (await this.readFile(sourcePath)).toString('utf8')
 
-        const target: JscTarget = 'es2022'
+        const target: swc.JscTarget = 'es2022'
 
-        const isTs = /\.tsx?$/.test(sourceUrl.pathname)
-        const parseOptions: ParseOptions = isTs
+        const parseOptions: swc.ParseOptions = type === 'typescript'
             ? {
                 syntax: 'typescript',
                 tsx: sourceUrl.pathname.endsWith('x'),
@@ -57,9 +65,14 @@ export class ModuleLoader implements FileLoader {
                 syntax: 'ecmascript',
                 jsx: sourceUrl.pathname.endsWith('x'),
                 target,
+                importAssertions: true,
             }
 
-        const parsedModule = await parse(content.toString('utf8'), parseOptions)
+        let parsedModule = await swc.parse(sourceCode, parseOptions)
+
+        for (const t of this.transformers) {
+            parsedModule = await t.transform(parsedModule, sourcePath, type)
+        }
 
         const resolved: Promise<void>[] = []
         for (const stmt of parsedModule.body) {
@@ -75,7 +88,7 @@ export class ModuleLoader implements FileLoader {
 
         const coverageVariable = this.getCoverageVar(subPath)
 
-        const { code } = await transform(parsedModule, {
+        const { code } = await swc.transform(parsedModule, {
             cwd: this.sourceRoot,
             filename: sourcePath,
             sourceFileName: sourcePath,
@@ -88,6 +101,7 @@ export class ModuleLoader implements FileLoader {
                 parser: parseOptions,
                 preserveAllComments: true,
                 experimental: {
+                    keepImportAttributes: true,
                     plugins: coverageVariable
                         ? [
                             ['swc-plugin-coverage-instrument', {
@@ -104,5 +118,17 @@ export class ModuleLoader implements FileLoader {
             content: code,
             mimeType: 'text/javascript',
         }
+    }
+
+    protected getTypeFromExtension(
+        filePath: string,
+    ) {
+        const m = /(\.d)?\.([cm]?[tj]s|[tj]x?)$/.exec(filePath)
+        return !m ? 'unsupported'
+            : m[1] ? 'declaration'
+                : m[2].includes('t') ? 'typescript'
+                    : m[2].startsWith('c') ? 'commonjs'
+                        : m[2].startsWith('m') ? 'ecmascript'
+                            : 'javascript'
     }
 }

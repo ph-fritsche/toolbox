@@ -9,7 +9,9 @@ export function setupFilesystemMock(
         caseSensitive: true,
         existsSync: mock.fn(hasFileOrDir),
         readFileSync: mock.fn(p => {
-            if (typeof files[p] === 'string') {
+            if (!(p in files)) {
+                throw new FileNotFound(p)
+            } else if (typeof files[p] === 'string') {
                 return Buffer.from(files[p] as string)
             }
             throw 'some filesystem error'
@@ -22,7 +24,9 @@ export function setupFilesystemMock(
         }),
         exists: mock.fn(p => Promise.resolve(hasFileOrDir(p))),
         readFile: mock.fn(p => {
-            if (typeof files[p] === 'string') {
+            if (!(p in files)) {
+                throw new FileNotFound(p)
+            } else if (typeof files[p] === 'string') {
                 return Promise.resolve(Buffer.from(files[p] as string))
             }
             return Promise.reject('some filesystem error')
@@ -34,4 +38,8 @@ export function setupFilesystemMock(
             return Promise.reject('some filesystem error')
         }),
     }
+}
+
+export class FileNotFound extends Error {
+    code = 'ENOENT'
 }

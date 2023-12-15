@@ -1,12 +1,33 @@
-import { ModuleLoader } from '#src/loader/ModuleLoader'
-import { setupFilesystemMock } from '#test/_fsMock'
+import { ModuleLoader, ModuleTransformer } from '#src/loader/ModuleLoader'
+import swc from '@swc/core'
+import {Visitor} from '@swc/core/Visitor.js'
+
+function setupModuleLoader(
+    files: Record<string, string>,
+    resolve: (s: string) => string = s => s,
+    getCovVar: (s: string) => string|undefined = () => undefined,
+    transformers: ModuleTransformer[] = [],
+) {
+    return new ModuleLoader(
+        async (sourcePath) => {
+            if (!files[sourcePath]) {
+                throw undefined
+            }
+            return files[sourcePath]
+        },
+        '/project',
+        {resolve},
+        getCovVar,
+        transformers,
+    )
+}
 
 test('transform TS files to JS', async () => {
-    const loader = new ModuleLoader(setupFilesystemMock({
+    const loader = setupModuleLoader({
         '/project/some/file.ts': `
             const x: string = 'y'
         `,
-    }), '/project', {resolve: s => s}, () => undefined)
+    })
 
     await expect(loader.load('some/file.ts')).resolves.toEqual({
         content: expect.stringContaining(`const x = 'y';`),
@@ -16,12 +37,12 @@ test('transform TS files to JS', async () => {
 
 test('replace import sources', async () => {
     const resolve = mock.fn(s => s === 'a' ? 'foo': 'bar')
-    const loader = new ModuleLoader(setupFilesystemMock({
+    const loader = setupModuleLoader({
         '/project/some/file.js': `
             import 'a';
             import 'b';
         `,
-    }), '/project', {resolve}, () => undefined)
+    }, resolve)
 
     const result = await loader.load('some/file.js')
     expect(resolve).toHaveBeenNthCalledWith(1, 'a', new URL('file:///project/some/file.js'))
@@ -32,11 +53,11 @@ test('replace import sources', async () => {
 
 test('instrument code', async () => {
     const covVarGetter = mock.fn(() => '-COVERAGE-')
-    const loader = new ModuleLoader(setupFilesystemMock({
+    const loader = setupModuleLoader({
         '/project/some/file.js': `
             const x = 'y'
         `,
-    }), '/project', {resolve: s => s}, covVarGetter)
+    }, undefined, covVarGetter)
 
     const result = await loader.load('some/file.js')
     expect(result?.content).toMatch('var gcv = "-COVERAGE-";')
@@ -44,11 +65,11 @@ test('instrument code', async () => {
 })
 
 test('inline sourcemap', async () => {
-    const loader = new ModuleLoader(setupFilesystemMock({
+    const loader = setupModuleLoader({
         '/project/some/file.js': `
             const x = 'y'
         `,
-    }), '/project', {resolve: s => s}, () => undefined)
+    })
 
     const result = await loader.load('some/file.js')
     expect(result?.content).toMatch('//# sourceMappingURL=data:application/json;base64,')
@@ -64,4 +85,31 @@ test('inline sourcemap', async () => {
             const x = 'y'
         `],
     })
+})
+
+test('inject transformers', async () => {
+    const tranformA = mock.fn((module: swc.Module) => {
+        return (new class V extends Visitor {
+            visitStringLiteral(n: swc.StringLiteral): swc.StringLiteral {
+                return {...n, value: 'y', raw: "'y'"}
+            }
+        }).visitModule(module)
+    })
+    const tranformB = mock.fn((module: swc.Module) => {
+        return (new class V extends Visitor {
+            visitIdentifier(n: swc.Identifier): swc.Identifier {
+                return {...n, value: 'x'}
+            }
+        }).visitModule(module)
+    })
+    const loader = setupModuleLoader({
+        '/project/some/file.js': `const a = 'b'`,
+    }, undefined, undefined, [
+        {transform: tranformA},
+        {transform: tranformB},
+    ])
+
+    expect((await loader.load('some/file.js'))?.content).toMatch(`const x = 'y';`)
+    expect(tranformA).toBeCalledWith(expect.any(Object), '/project/some/file.js', 'javascript')
+    expect(tranformB).toBeCalledWith(expect.any(Object), '/project/some/file.js', 'javascript')
 })

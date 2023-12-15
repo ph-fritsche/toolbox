@@ -30,4 +30,7 @@ export default [
             globals: globals.node,
         },
     },
+    {
+        ignores: ['dependencies/**'],
+    },
 ]
