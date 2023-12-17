@@ -34,16 +34,18 @@ export type ImportResolverCallback = (
     importerUrl: URL,
 ) => Promise<string|undefined>|string|undefined
 
-export type ImportResolverConstrain = (
+export type ImportResolverImporterConstrain = (
     /** Path of the importer relative to the rootDir. */
     importerPath: string,
     importerUrl: URL,
 ) => boolean
 
-export function constrainResolver(
+export function constrainResolverToImporter(
     cb: ImportResolverCallback,
-    include?: RegExp[] | ImportResolverConstrain,
-    exclude?: RegExp[] | ImportResolverConstrain,
+    constrain: {
+        include?: RegExp[] | ImportResolverImporterConstrain
+        exclude?: RegExp[] | ImportResolverImporterConstrain
+    } = {},
     /**
      * URL of rootDir for subpaths handled by `include` and `exclude` constrains.
      * Defaults to current working directory.
@@ -53,19 +55,68 @@ export function constrainResolver(
     rootDirUrl += rootDirUrl.endsWith('/') ? '' : '/'
 
     return (resolved, specifier, importerUrl) => {
-        const isConstrainHit = (constrain: RegExp[] | ImportResolverConstrain) => (
-            typeof constrain === 'function'
-                ? constrain(importerPath, importerUrl)
-                : constrain.some(r => r.test(importerPath))
-        )
         const importerFullPath = String(importerUrl)
         if (!importerFullPath.startsWith(rootDirUrl)) {
             return undefined
         }
         const importerPath = importerFullPath.substring(rootDirUrl.length)
-        if (include && !isConstrainHit(include)) {
+        const isConstrainHit = (constrain: RegExp[] | ImportResolverImporterConstrain) => (
+            typeof constrain === 'function'
+                ? constrain(importerPath, importerUrl)
+                : constrain.some(r => r.test(importerPath))
+        )
+        if (constrain.include && !isConstrainHit(constrain.include)) {
             return undefined
-        } if (exclude && isConstrainHit(exclude)) {
+        } if (constrain.exclude && isConstrainHit(constrain.exclude)) {
+            return undefined
+        }
+
+        return cb(resolved, specifier, importerUrl)
+    }
+}
+
+export type ImportResolverResolvedConstrain = (
+    resolved: string,
+) => boolean
+
+export function constrainResolverToResolved(
+    cb: ImportResolverCallback,
+    constrain: {
+        include?: RegExp[] | ImportResolverResolvedConstrain
+        exclude?: RegExp[] | ImportResolverResolvedConstrain
+    } = {},
+    /**
+     * URL of rootDir or namespace prefix (e.g. `node:`) for identifiers handled by `include` and `exclude` constrains.
+     * Defaults to current working directory.
+     */
+    root = String(pathToFileURL(process.cwd())),
+): ImportResolverCallback {
+    const type = root.includes('://') ? 'url'
+        : root.endsWith(':') ? 'ns'
+            : undefined
+    if (!type) {
+        throw new Error('Invalid argument `root`. Value has to be URL or namespace (e.g. `node:`).')
+    } else if (type === 'url' && !root.endsWith('/')) {
+        root += '/'
+    }
+
+    return (resolved, specifier, importerUrl) => {
+        if (!resolved
+            || !resolved.startsWith(root)
+            || type === 'ns' && resolved[root.length] === '/'
+        ) {
+            return undefined
+        }
+
+        const sub = resolved.substring(root.length)
+        const isConstrainHit = (constrain: RegExp[] | ImportResolverResolvedConstrain) => (
+            typeof constrain === 'function'
+                ? constrain(sub)
+                : constrain.some(r => r.test(sub))
+        )
+        if (constrain.include && !isConstrainHit(constrain.include)) {
+            return undefined
+        } if (constrain.exclude && isConstrainHit(constrain.exclude)) {
             return undefined
         }
 
@@ -198,7 +249,7 @@ export async function createNodeImportResolver(catchErrors = true): Promise<Impo
  */
 export function createNodeRequireResolver(catchErrors = true): ImportResolverCallback {
     return (resolved, specifier, importerUrl) => {
-        if (resolved) {
+        if (resolved || importerUrl.protocol !== 'file:') {
             return undefined
         }
 

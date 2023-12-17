@@ -1,4 +1,4 @@
-import { ImportResolverStack, ImportResolverConstrain, constrainResolver, createNodeBuiltinResolver, createNodeImportResolver, createToRelativeResolver, createTsResolver } from '#src/loader/ImportResolver'
+import { ImportResolverStack, constrainResolverToImporter, constrainResolverToResolved, createNodeBuiltinResolver, createNodeImportResolver, createNodeRequireResolver, createToRelativeResolver, createTsResolver } from '#src/loader/ImportResolver'
 import { TsConfigResolver, TsModuleResolver } from '#src/ts'
 import { setupFilesystemMock } from '#test/_fsMock'
 import { pathToFileURL } from 'url'
@@ -16,53 +16,111 @@ test('create import resolve chain', async () => {
     expect(c).toBeCalledWith('foo', 'some/module', importer)
 })
 
-test('constrain resolver', async () => {
+test('constrain resolver to importer', async () => {
     function resolve(
         importer: string,
-        include?: RegExp[] | ImportResolverConstrain,
-        exclude?: RegExp[] | ImportResolverConstrain,
+        constrain?: Parameters<typeof constrainResolverToImporter>[1],
         rootDirUrl = 'prot://host/workspace',
     ) {
         const callback = mock.fn(() => 'resolved-module')
         const importerUrl = new URL(importer)
-        const result = constrainResolver(callback, include, exclude, rootDirUrl)('some', 'module', importerUrl)
-        return {callback, importerUrl, include, exclude, result}
+        const result = constrainResolverToImporter(callback, constrain, rootDirUrl)('some', 'module', importerUrl)
+        return {callback, importerUrl, constrain, result}
     }
 
-    const inRootDir = resolve('prot://host/workspace/some/file.js', undefined, undefined)
+    const inRootDir = resolve('prot://host/workspace/some/file.js')
     expect(inRootDir.callback).toBeCalledWith('some', 'module', inRootDir.importerUrl)
     expect(inRootDir.result).toBe('resolved-module')
 
-    const notInRootDir = resolve('prot://host/different-workspace/some/file.js', undefined, undefined)
+    const notInRootDir = resolve('prot://host/different-workspace/some/file.js')
     expect(notInRootDir.callback).not.toBeCalled()
     expect(notInRootDir.result).toBe(undefined)
 
-    const includeFuncPositive = resolve('prot://host/workspace/some/file.js', mock.fn(() => true), undefined)
+    const includeFuncPositive = resolve('prot://host/workspace/some/file.js', {include: mock.fn(() => true)})
+    expect(includeFuncPositive.constrain?.include).toBeCalledWith('some/file.js', includeFuncPositive.importerUrl)
     expect(includeFuncPositive.callback).toBeCalled()
-    expect(includeFuncPositive.include).toBeCalledWith('some/file.js', includeFuncPositive.importerUrl)
 
-    const includeFuncNegative = resolve('prot://host/workspace/some/file.js', mock.fn(() => false), undefined)
+    const includeFuncNegative = resolve('prot://host/workspace/some/file.js', {include: mock.fn(() => false)})
+    expect(includeFuncNegative.constrain?.include).toBeCalledWith('some/file.js', includeFuncPositive.importerUrl)
     expect(includeFuncNegative.callback).not.toBeCalled()
-    expect(includeFuncNegative.include).toBeCalledWith('some/file.js', includeFuncPositive.importerUrl)
 
-    const includeRegexpPositive = resolve('prot://host/workspace/some/file.js', [/never/, /some/], undefined)
+    const includeRegexpPositive = resolve('prot://host/workspace/some/file.js', {include: [/never/, /some/]})
     expect(includeRegexpPositive.callback).toBeCalled()
 
-    const includeRegexpNegative = resolve('prot://host/workspace/some/file.js', [/never/, /other/], undefined)
+    const includeRegexpNegative = resolve('prot://host/workspace/some/file.js', {include: [/never/, /other/]})
     expect(includeRegexpNegative.callback).not.toBeCalled()
 
-    const excludeFuncPositive = resolve('prot://host/workspace/some/file.js', undefined, mock.fn(() => true))
+    const excludeFuncPositive = resolve('prot://host/workspace/some/file.js', {exclude: mock.fn(() => true)})
+    expect(excludeFuncPositive.constrain?.exclude).toBeCalledWith('some/file.js', includeFuncPositive.importerUrl)
     expect(excludeFuncPositive.callback).not.toBeCalled()
-    expect(excludeFuncPositive.exclude).toBeCalledWith('some/file.js', includeFuncPositive.importerUrl)
 
-    const excludeFuncNegative = resolve('prot://host/workspace/some/file.js', undefined, mock.fn(() => false))
+    const excludeFuncNegative = resolve('prot://host/workspace/some/file.js', {exclude: mock.fn(() => false)})
+    expect(excludeFuncNegative.constrain?.exclude).toBeCalledWith('some/file.js', includeFuncPositive.importerUrl)
     expect(excludeFuncNegative.callback).toBeCalled()
-    expect(excludeFuncNegative.exclude).toBeCalledWith('some/file.js', includeFuncPositive.importerUrl)
 
-    const excludeRegexpPositive = resolve('prot://host/workspace/some/file.js', undefined, [/never/, /some/])
+    const excludeRegexpPositive = resolve('prot://host/workspace/some/file.js', {exclude: [/never/, /some/]})
     expect(excludeRegexpPositive.callback).not.toBeCalled()
 
-    const excludeRegexpNegative = resolve('prot://host/workspace/some/file.js', undefined, [/never/, /other/])
+    const excludeRegexpNegative = resolve('prot://host/workspace/some/file.js', {exclude: [/never/, /other/]})
+    expect(excludeRegexpNegative.callback).toBeCalled()
+})
+
+test('constrain resolver to resolved', async () => {
+    function resolve(
+        resolved: string,
+        constrain?: Parameters<typeof constrainResolverToResolved>[1],
+        rootDirUrl = 'prot://host/workspace',
+    ) {
+        const callback = mock.fn(() => 'resolved-module')
+        const importerUrl = new URL('some://importer/module')
+        const result = constrainResolverToResolved(callback, constrain, rootDirUrl)(resolved, 'some-specifier', importerUrl)
+        return {callback, importerUrl, constrain, result}
+    }
+
+    expect(() => resolve('anything', undefined, 'invalid-root')).toThrow('Invalid')
+
+    const inRootUrl = resolve('prot://host/workspace/some/file.js')
+    expect(inRootUrl.callback).toBeCalledWith('prot://host/workspace/some/file.js', 'some-specifier', inRootUrl.importerUrl)
+    expect(inRootUrl.result).toBe('resolved-module')
+
+    const inRootNamespace = resolve('namespace:something', undefined, 'namespace:')
+    expect(inRootNamespace.callback).toBeCalledWith('namespace:something', 'some-specifier', inRootUrl.importerUrl)
+    expect(inRootNamespace.result).toBe('resolved-module')
+
+    const notInRootUrl = resolve('prot://host/different-workspace/some/file.js')
+    expect(notInRootUrl.callback).not.toBeCalled()
+    expect(notInRootUrl.result).toBe(undefined)
+
+    const notInRootNamespace = resolve('other:something', undefined, 'namespace:')
+    expect(notInRootNamespace.callback).not.toBeCalled()
+    expect(notInRootNamespace.result).toBe(undefined)
+
+    const includeFuncPositive = resolve('prot://host/workspace/some/file.js', {include: mock.fn(() => true)})
+    expect(includeFuncPositive.constrain?.include).toBeCalledWith('some/file.js')
+    expect(includeFuncPositive.callback).toBeCalled()
+
+    const includeFuncNegative = resolve('prot://host/workspace/some/file.js', {include: mock.fn(() => false)})
+    expect(includeFuncNegative.constrain?.include).toBeCalledWith('some/file.js')
+    expect(includeFuncNegative.callback).not.toBeCalled()
+
+    const includeRegexpPositive = resolve('prot://host/workspace/some/file.js', {include: [/never/, /some/]})
+    expect(includeRegexpPositive.callback).toBeCalled()
+
+    const includeRegexpNegative = resolve('prot://host/workspace/some/file.js', {include: [/never/, /other/]})
+    expect(includeRegexpNegative.callback).not.toBeCalled()
+
+    const excludeFuncPositive = resolve('prot://host/workspace/some/file.js', {exclude: mock.fn(() => true)})
+    expect(excludeFuncPositive.constrain?.exclude).toBeCalledWith('some/file.js')
+    expect(excludeFuncPositive.callback).not.toBeCalled()
+
+    const excludeFuncNegative = resolve('prot://host/workspace/some/file.js', {exclude: mock.fn(() => false)})
+    expect(excludeFuncNegative.constrain?.exclude).toBeCalledWith('some/file.js')
+    expect(excludeFuncNegative.callback).toBeCalled()
+
+    const excludeRegexpPositive = resolve('prot://host/workspace/some/file.js', {exclude: [/never/, /some/]})
+    expect(excludeRegexpPositive.callback).not.toBeCalled()
+
+    const excludeRegexpNegative = resolve('prot://host/workspace/some/file.js', {exclude: [/never/, /other/]})
     expect(excludeRegexpNegative.callback).toBeCalled()
 })
 
@@ -88,7 +146,7 @@ test('resolve per typescript', async () => {
     expect(await resolve(undefined, '#foo', new URL('unsupported:///project/some/file.ts'))).toBe(undefined)
 })
 
-test('resolve per node', async () => {
+test('resolve per node import', async () => {
     const resolve = await createNodeImportResolver()
 
     const node_modules = process.cwd() + '/node_modules'
@@ -96,6 +154,21 @@ test('resolve per node', async () => {
     expect(await resolve(undefined, 'typescript', pathToFileURL(node_modules + '/@swc/core/foo.js'))).toBe(String(pathToFileURL(node_modules + '/typescript/lib/typescript.js')))
 
     expect(await resolve('already-resolved', 'typescript', pathToFileURL(node_modules + '/@swc/core/foo.js'))).toBe(undefined)
+
+    expect(await resolve(undefined, 'typescript', new URL('http://example.org/foo.js'))).toBe(undefined)
+})
+
+test('resolve per node require', async () => {
+    const resolve = createNodeRequireResolver()
+
+    const node_modules = process.cwd() + '/node_modules'
+
+    expect(await resolve(undefined, 'typescript', pathToFileURL(node_modules + '/@swc/core/foo.js'))).toBe(String(node_modules + '/typescript/lib/typescript.js'))
+
+    expect(await resolve('already-resolved', 'typescript', pathToFileURL(node_modules + '/@swc/core/foo.js'))).toBe(undefined)
+
+    expect(await resolve(undefined, 'typescript', new URL('http://example.org/foo.js'))).toBe(undefined)
+    expect(await resolve(undefined, 'http://example.org/foo.js', pathToFileURL(node_modules + '/@swc/core/foo.js'))).toBe(undefined)
 })
 
 test('convert to relative paths', async () => {
