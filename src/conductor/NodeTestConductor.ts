@@ -8,11 +8,6 @@ import { TestReporter } from './TestReporter'
 import { ErrorStackResolver } from './ErrorStackResolver'
 import { AbortablePromise } from '../util/AbortablePromise'
 
-if (!import.meta.resolve) {
-    throw new Error('`import.meta.resolve` is required. Run with `--experimental-import-meta-resolve`!')
-}
-const nodeFetchUrl = await import.meta.resolve('node-fetch', import.meta.url)
-
 const loaderPath = path.dirname(url.fileURLToPath(import.meta.url)) + '/../node'
 
 export class NodeTestConductor extends TestConductor {
@@ -94,8 +89,8 @@ export class NodeTestConductor extends TestConductor {
 
         const childCode = `
 import { TestRunner, HttpReporterClient } from "${this.testRunnerModule}"
-import fetch from "${String(nodeFetchUrl)}"
 
+const fetch = global.fetch
 const exit = process.exit
 const setTimeout = global.setTimeout
 
