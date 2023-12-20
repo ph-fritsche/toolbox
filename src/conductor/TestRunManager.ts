@@ -1,11 +1,47 @@
-import { TestSuite } from './TestRun'
+import { TestFile, TestRunStack, TestSuite, createTestRun } from './TestRun'
 import os from 'node:os'
 import events from 'node:events'
+import { EventEmitter, getEventDispatch } from '../event'
+import { TestConductor } from './TestConductor'
 
-export class TestRunManager {
+type TestRunManagerEventMap = {
+    create: {run: TestRunStack}
+    complete: {run: TestRunStack}
+    abort: {run: TestRunStack}
+    done: {run: TestRunStack}
+}
+
+export class TestRunManager extends EventEmitter<TestRunManagerEventMap> {
+    constructor() {
+        super()
+    }
+
     maxParallel = os.availableParallelism()
 
     protected abortController?: AbortController
+
+    private dispatch = getEventDispatch(this)
+
+    async run(
+        conductors: Iterable<TestConductor>,
+        testFiles: Iterable<TestFile>,
+        testRunIterator: (run: TestRunStack) => Generator<TestSuite>,
+        filterSuites?: RegExp,
+        filterTests?: RegExp,
+    ) {
+        const run = createTestRun(conductors, testFiles)
+
+        this.dispatch('create', {run})
+
+        try {
+            await this.exec(testRunIterator(run), filterSuites, filterTests)
+            this.dispatch('complete', {run})
+        } catch(e) {
+            this.dispatch('abort', {run})
+        } finally {
+            this.dispatch('done', { run })
+        }
+    }
 
     async exec(
         suites: Iterable<TestSuite>,

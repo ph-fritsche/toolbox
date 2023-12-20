@@ -1,4 +1,7 @@
+import { TestConductor } from '#src/conductor/TestConductor'
 import { TestRunInstance, createTestRun } from '#src/conductor/TestRun'
+import { TestRunStack } from '#src/conductor/TestRun/TestRun'
+import { TestRunIterator } from '#src/conductor/TestRunIterator'
 import { TestRunManager } from '#src/conductor/TestRunManager'
 import { promise } from '#src/util/promise'
 import { observePromise } from '#test/_util'
@@ -193,4 +196,55 @@ test('subsequent `exec` call aborts previous run', async () => {
         'test://e.js': 'pending',
         'test://f.js': 'pending',
     })
+})
+
+test('run test files', async () => {
+    const manager = new TestRunManager()
+    const execMock = mock.fn<TestRunManager['exec']>(() => Promise.resolve())
+    Reflect.set(manager, 'exec', execMock)
+
+    const listener = mock.fn<(e: {type: string, run: TestRunStack}) => void>()
+    manager.addListener('create', listener)
+    manager.addListener('abort', listener)
+    manager.addListener('complete', listener)
+    manager.addListener('done', listener)
+
+    const conductor = {} as TestConductor
+    const filterSuites = new RegExp('')
+    const filterTests = new RegExp('')
+    const runA = observePromise(manager.run([conductor], [
+        {url: 'test://a.js', title: 'a'},
+        {url: 'test://b.js', title: 'b'},
+    ], TestRunIterator.iterateConductorsBySuites, filterSuites, filterTests))
+
+    expect(listener).toHaveBeenNthCalledWith(1, {type: 'create', run: expect.any(TestRunStack)})
+    const runARun = listener.mock.lastCall![0].run
+    expect(execMock).toBeCalledTimes(1)
+    const suites = Array.from(execMock.mock.lastCall![0])
+    expect(suites[0].run.conductor).toBe(conductor)
+    expect(suites[1].run.conductor).toBe(conductor)
+    expect(execMock.mock.lastCall![1]).toBe(filterSuites)
+    expect(execMock.mock.lastCall![2]).toBe(filterTests)
+
+    await nextTick()
+
+    expect(listener).toHaveBeenNthCalledWith(2, {type: 'complete', run: runARun})
+    expect(listener).toHaveBeenNthCalledWith(3, {type: 'done', run: runARun})
+    expect(runA.state).toBe('resolved')
+
+    execMock.mockImplementation(() => Promise.reject())
+    const runB = observePromise(manager.run([conductor], [
+        {url: 'test://a.js', title: 'a'},
+        {url: 'test://b.js', title: 'b'},
+    ], TestRunIterator.iterateConductorsBySuites))
+
+    expect(listener).toHaveBeenNthCalledWith(4, {type: 'create', run: expect.any(TestRunStack)})
+    const runBRun = listener.mock.lastCall![0].run
+    expect(execMock).toBeCalledTimes(2)
+
+    await nextTick()
+
+    expect(listener).toHaveBeenNthCalledWith(5, {type: 'abort', run: runBRun})
+    expect(listener).toHaveBeenNthCalledWith(6, {type: 'done', run: runBRun})
+    expect(runB.state).toBe('resolved')
 })
