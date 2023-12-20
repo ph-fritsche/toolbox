@@ -1,4 +1,4 @@
-import { FSWatcher, WatchOptions } from 'chokidar'
+import chokidar from 'chokidar'
 
 /**
  * Wrapper around chokidar that maintains a list of existing files.
@@ -7,9 +7,9 @@ export class FsWatcher {
     protected readonly fsWatcher
     protected readonly _files = new Set<string>()
     constructor(
-        options?: WatchOptions,
+        options?: chokidar.WatchOptions,
     ) {
-        this.fsWatcher = new FSWatcher({
+        this.fsWatcher = new chokidar.FSWatcher({
             ...options,
             ignoreInitial: false,
         })
