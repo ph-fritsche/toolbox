@@ -8,7 +8,15 @@ import { TestReporter } from './TestReporter'
 import { ErrorStackResolver } from './ErrorStackResolver'
 import { AbortablePromise } from '../util/AbortablePromise'
 
-const loaderPath = path.dirname(url.fileURLToPath(import.meta.url)) + '/../node'
+const loaderPathEnv = 'ToolboxNodeLoadersPath'
+const loaderPath = (() => {
+    if (process.env[loaderPathEnv]) {
+        return process.env[loaderPathEnv]
+    } else if (import.meta.url.startsWith('file://')) {
+        return path.resolve(url.fileURLToPath(import.meta.url), '../../node')
+    }
+    throw new Error(`Could not determine path for node loaders. Try to set env variable '${loaderPathEnv}'.`)
+})()
 
 export class NodeTestConductor extends TestConductor {
     constructor(
@@ -56,6 +64,7 @@ export class NodeTestConductor extends TestConductor {
                 env: {
                     ...process.env,
                     INSTRUMENT_COVERAGE_VAR: this.coverageVar,
+                    [loaderPathEnv]: loaderPath,
                 },
                 stdio: ['pipe', 'pipe', 'pipe'],
             })
