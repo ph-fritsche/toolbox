@@ -101,6 +101,7 @@ export class ModuleLoader implements FileLoader {
                 parser: parseOptions,
                 preserveAllComments: true,
                 experimental: {
+                    emitAssertForImportAttributes: true,
                     keepImportAttributes: true,
                     plugins: coverageVariable
                         ? [

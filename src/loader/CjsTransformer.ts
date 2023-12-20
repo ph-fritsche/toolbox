@@ -6,6 +6,11 @@ export interface JsModuleTypeResolver {
     getJsModuleType: (sourcePath: string) => 'ecmascript'|'commonjs'|Promise<'ecmascript'|'commonjs'>
 }
 
+declare module '@swc/core' {
+    export interface ImportDeclaration {
+        with?: swc.ObjectExpression
+    }
+}
 /**
  * Transform CommonJs modules to be EcmaScript compatible.
  *
@@ -138,7 +143,7 @@ export class CjsNodeFactory {
                 value: source,
             },
             typeOnly: false,
-            asserts: source.endsWith('.json')
+            with: source.endsWith('.json')
                 ? {
                     type: 'ObjectExpression',
                     span,
