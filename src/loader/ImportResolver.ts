@@ -23,16 +23,34 @@ export class ImportResolverStack implements ImportResolverStack {
         for (const f of this.callbacks) {
             resolved = await f(resolved, specifier, importerUrl) || resolved
         }
+        resolved = resolved?.replace(/^node:\/\//, 'node:')
         return String(resolved ?? specifier)
     }
 }
 
+/**
+ * Resolve specifier to a URL.
+ *
+ * File paths should be converted per [`url.pathToFileURL()`](https://nodejs.org/api/url.html#urlpathtofileurlpath)
+ *
+ * Refer node built-ins per `node://`.
+ */
 export type ImportResolverCallback = (
     /** Result of previous callbacks */
     resolved: string|undefined,
     specifier: string,
     importerUrl: URL,
 ) => Promise<string|undefined>|string|undefined
+
+function isConstrainHit<A extends unknown[]>(
+    str: string,
+    constrain: RegExp[] | ((str: string, ...additionalArgs: A) => boolean),
+    ...args: A
+) {
+    return typeof constrain === 'function'
+        ? constrain(str, ...args)
+        : constrain.some(r => r.test(str))
+}
 
 export type ImportResolverImporterConstrain = (
     /** Path of the importer relative to the rootDir. */
@@ -55,19 +73,15 @@ export function constrainResolverToImporter(
     rootDirUrl += rootDirUrl.endsWith('/') ? '' : '/'
 
     return (resolved, specifier, importerUrl) => {
-        const importerFullPath = String(importerUrl)
-        if (!importerFullPath.startsWith(rootDirUrl)) {
+        const absolute = String(importerUrl)
+        if (!absolute.startsWith(rootDirUrl)) {
             return undefined
         }
-        const importerPath = importerFullPath.substring(rootDirUrl.length)
-        const isConstrainHit = (constrain: RegExp[] | ImportResolverImporterConstrain) => (
-            typeof constrain === 'function'
-                ? constrain(importerPath, importerUrl)
-                : constrain.some(r => r.test(importerPath))
-        )
-        if (constrain.include && !isConstrainHit(constrain.include)) {
+
+        const sub = absolute.substring(rootDirUrl.length)
+        if (constrain.include && !isConstrainHit(sub, constrain.include, importerUrl)) {
             return undefined
-        } if (constrain.exclude && isConstrainHit(constrain.exclude)) {
+        } if (constrain.exclude && isConstrainHit(sub, constrain.exclude, importerUrl)) {
             return undefined
         }
 
@@ -86,37 +100,27 @@ export function constrainResolverToResolved(
         exclude?: RegExp[] | ImportResolverResolvedConstrain
     } = {},
     /**
-     * URL of rootDir or namespace prefix (e.g. `node:`) for identifiers handled by `include` and `exclude` constrains.
+     * URL of rootDir for subpaths handled by `include` and `exclude` constrains.
      * Defaults to current working directory.
      */
-    root = String(pathToFileURL(process.cwd())),
+    rootDirUrl = String(pathToFileURL(process.cwd())),
 ): ImportResolverCallback {
-    const type = root.includes('://') ? 'url'
-        : root.endsWith(':') ? 'ns'
-            : undefined
-    if (!type) {
-        throw new Error('Invalid argument `root`. Value has to be URL or namespace (e.g. `node:`).')
-    } else if (type === 'url' && !root.endsWith('/')) {
-        root += '/'
-    }
+    rootDirUrl += rootDirUrl.endsWith('/') ? '' : '/'
 
     return (resolved, specifier, importerUrl) => {
-        if (!resolved
-            || !resolved.startsWith(root)
-            || type === 'ns' && resolved[root.length] === '/'
-        ) {
+        if (!resolved) {
             return undefined
         }
 
-        const sub = resolved.substring(root.length)
-        const isConstrainHit = (constrain: RegExp[] | ImportResolverResolvedConstrain) => (
-            typeof constrain === 'function'
-                ? constrain(sub)
-                : constrain.some(r => r.test(sub))
-        )
-        if (constrain.include && !isConstrainHit(constrain.include)) {
+        const absolute = String(new URL(resolved, importerUrl))
+        if (!absolute.startsWith(rootDirUrl)) {
             return undefined
-        } if (constrain.exclude && isConstrainHit(constrain.exclude)) {
+        }
+
+        const sub = absolute.substring(rootDirUrl.length)
+        if (constrain.include && !isConstrainHit(sub, constrain.include)) {
+            return undefined
+        } if (constrain.exclude && isConstrainHit(sub, constrain.exclude)) {
             return undefined
         }
 
@@ -155,7 +159,7 @@ export function createNodeBuiltinResolver(
         if (!id) {
             return undefined
         } else if (!replacement) {
-            return `node:${id}`
+            return `node://${id}`
         } else if (!replacement[id]) {
             return onMissingReplacement(id, importerUrl)
         }
@@ -204,7 +208,7 @@ export function createTsResolver(
 
         const resolvedId = tsModuleResolver.resolveModule(specifier, importerPath, compilerOptions)
 
-        return resolvedId
+        return resolvedId?.startsWith('/') ? String(pathToFileURL(resolvedId)) : resolvedId
     }
 }
 
@@ -255,7 +259,8 @@ export function createNodeRequireResolver(catchErrors = true): ImportResolverCal
 
         const require = module.createRequire(importerUrl)
         try {
-            return require.resolve(specifier)
+            const resolvedId = require.resolve(specifier)
+            return resolvedId?.startsWith('/') ? String(pathToFileURL(resolvedId)) : resolvedId
         } catch(e) {
             if (catchErrors) {
                 return undefined

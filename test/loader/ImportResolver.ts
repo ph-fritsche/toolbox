@@ -16,6 +16,11 @@ test('create import resolve chain', async () => {
     expect(c).toBeCalledWith('foo', 'some/module', importer)
 })
 
+test('convert `node://` URLs back to `node:` prefix', async () => {
+    const resolver = new ImportResolverStack([() => 'node://some-built-in'])
+    await expect(resolver.resolve('spec', new URL('prot://host'))).resolves.toBe('node:some-built-in')
+})
+
 test('constrain resolver to importer', async () => {
     function resolve(
         importer: string,
@@ -77,23 +82,17 @@ test('constrain resolver to resolved', async () => {
         return {callback, importerUrl, constrain, result}
     }
 
-    expect(() => resolve('anything', undefined, 'invalid-root')).toThrow('Invalid')
-
     const inRootUrl = resolve('prot://host/workspace/some/file.js')
     expect(inRootUrl.callback).toBeCalledWith('prot://host/workspace/some/file.js', 'some-specifier', inRootUrl.importerUrl)
     expect(inRootUrl.result).toBe('resolved-module')
 
-    const inRootNamespace = resolve('namespace:something', undefined, 'namespace:')
-    expect(inRootNamespace.callback).toBeCalledWith('namespace:something', 'some-specifier', inRootUrl.importerUrl)
-    expect(inRootNamespace.result).toBe('resolved-module')
+    const inRootPerRel = resolve('./other-module.js', undefined, 'some://importer')
+    expect(inRootPerRel.callback).toBeCalledWith('./other-module.js', 'some-specifier', inRootPerRel.importerUrl)
+    expect(inRootPerRel.result).toBe('resolved-module')
 
     const notInRootUrl = resolve('prot://host/different-workspace/some/file.js')
     expect(notInRootUrl.callback).not.toBeCalled()
     expect(notInRootUrl.result).toBe(undefined)
-
-    const notInRootNamespace = resolve('other:something', undefined, 'namespace:')
-    expect(notInRootNamespace.callback).not.toBeCalled()
-    expect(notInRootNamespace.result).toBe(undefined)
 
     const includeFuncPositive = resolve('prot://host/workspace/some/file.js', {include: mock.fn(() => true)})
     expect(includeFuncPositive.constrain?.include).toBeCalledWith('some/file.js')
@@ -138,9 +137,9 @@ test('resolve per typescript', async () => {
     })
     const resolve = createTsResolver(new TsConfigResolver(fs), new TsModuleResolver(fs))
 
-    expect(await resolve(undefined, '../other/file.ts', new URL('file:///project/some/file.ts'))).toBe('/project/other/file.ts')
-    expect(await resolve(undefined, '../other/file', new URL('file:///project/some/file.ts'))).toBe('/project/other/file.ts')
-    expect(await resolve(undefined, '#foo', new URL('file:///project/some/file.ts'))).toBe('/project/other/file.ts')
+    expect(await resolve(undefined, '../other/file.ts', new URL('file:///project/some/file.ts'))).toBe('file:///project/other/file.ts')
+    expect(await resolve(undefined, '../other/file', new URL('file:///project/some/file.ts'))).toBe('file:///project/other/file.ts')
+    expect(await resolve(undefined, '#foo', new URL('file:///project/some/file.ts'))).toBe('file:///project/other/file.ts')
 
     expect(await resolve('already-resolved', '#foo', new URL('file:///project/some/file.ts'))).toBe(undefined)
     expect(await resolve(undefined, '#foo', new URL('unsupported:///project/some/file.ts'))).toBe(undefined)
@@ -149,11 +148,11 @@ test('resolve per typescript', async () => {
 test('resolve per node import', async () => {
     const resolve = await createNodeImportResolver()
 
-    const node_modules = process.cwd() + '/node_modules'
+    const cwd = String(pathToFileURL(process.cwd()))
 
-    expect(await resolve(undefined, 'typescript', pathToFileURL(node_modules + '/@swc/core/foo.js'))).toBe(String(pathToFileURL(node_modules + '/typescript/lib/typescript.js')))
+    expect(await resolve(undefined, 'typescript', new URL(cwd + '/foo.js'))).toBe(cwd + '/node_modules/typescript/lib/typescript.js')
 
-    expect(await resolve('already-resolved', 'typescript', pathToFileURL(node_modules + '/@swc/core/foo.js'))).toBe(undefined)
+    expect(await resolve('already-resolved', 'typescript', new URL(cwd + '/foo.js'))).toBe(undefined)
 
     expect(await resolve(undefined, 'typescript', new URL('http://example.org/foo.js'))).toBe(undefined)
 })
@@ -161,14 +160,14 @@ test('resolve per node import', async () => {
 test('resolve per node require', async () => {
     const resolve = createNodeRequireResolver()
 
-    const node_modules = process.cwd() + '/node_modules'
+    const cwd = String(pathToFileURL(process.cwd()))
 
-    expect(await resolve(undefined, 'typescript', pathToFileURL(node_modules + '/@swc/core/foo.js'))).toBe(String(node_modules + '/typescript/lib/typescript.js'))
+    expect(await resolve(undefined, 'typescript', new URL(cwd + '/foo.js'))).toBe(cwd + '/node_modules/typescript/lib/typescript.js')
 
-    expect(await resolve('already-resolved', 'typescript', pathToFileURL(node_modules + '/@swc/core/foo.js'))).toBe(undefined)
+    expect(await resolve('already-resolved', 'typescript', new URL(cwd + '/foo.js'))).toBe(undefined)
 
     expect(await resolve(undefined, 'typescript', new URL('http://example.org/foo.js'))).toBe(undefined)
-    expect(await resolve(undefined, 'http://example.org/foo.js', pathToFileURL(node_modules + '/@swc/core/foo.js'))).toBe(undefined)
+    expect(await resolve(undefined, 'http://example.org/foo.js', new URL(cwd + '/foo.js'))).toBe(undefined)
 })
 
 test('convert to relative paths', async () => {
@@ -200,7 +199,7 @@ test('resolve node built-in modules', async () => {
 
     const resolveBuiltin = createNodeBuiltinResolver()
     expect(resolveBuiltin(undefined, 'not a builtin module', new URL('prot://host/foo'))).toBe(undefined)
-    expect(resolveBuiltin(undefined, 'process', new URL('prot://host/foo'))).toBe('node:process')
+    expect(resolveBuiltin(undefined, 'process', new URL('prot://host/foo'))).toBe('node://process')
 
     const onMissing = mock.fn(() => 'resolved-module')
     const resolveMissing = createNodeBuiltinResolver({}, onMissing)
