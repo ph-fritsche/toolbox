@@ -93,6 +93,8 @@ export class ModuleLoader implements FileLoader {
             cwd: this.sourceRoot,
             filename: sourcePath,
             sourceFileName: sourcePath,
+            swcrc: false,
+            configFile: false,
             module: {
                 type: 'es6',
                 ignoreDynamic: true,
