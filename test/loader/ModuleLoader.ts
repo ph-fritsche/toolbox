@@ -60,6 +60,7 @@ test('instrument code', async () => {
     }, undefined, covVarGetter)
 
     const result = await loader.load('some/file.js')
+    expect(result?.content).toMatch('var path = "/project/some/file.js";')
     expect(result?.content).toMatch('var gcv = "-COVERAGE-";')
     expect(result?.content).toMatch(/const x = \(cov_\d+\(\)\.s\[0\]\+\+, 'y'\);/)
 })

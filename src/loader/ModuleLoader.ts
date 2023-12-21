@@ -41,6 +41,7 @@ export class ModuleLoader implements FileLoader {
         this.sourceUrlRoot = String(pathToFileURL(this.sourceRoot + (this.sourceRoot.endsWith('/') ? '' : '/')))
     }
     protected readonly sourceUrlRoot
+    protected readonly compiler = new swc.Compiler()
 
     async load(subPath: string): Promise<File|undefined> {
         const sourceUrl = new URL(this.sourceUrlRoot + subPath)
@@ -68,7 +69,7 @@ export class ModuleLoader implements FileLoader {
                 importAssertions: true,
             }
 
-        let parsedModule = await swc.parse(sourceCode, parseOptions)
+        let parsedModule = await this.compiler.parse(sourceCode, parseOptions, sourcePath)
 
         for (const t of this.transformers) {
             parsedModule = await t.transform(parsedModule, sourcePath, type)
@@ -88,7 +89,7 @@ export class ModuleLoader implements FileLoader {
 
         const coverageVariable = this.getCoverageVar(subPath)
 
-        const { code } = await swc.transform(parsedModule, {
+        const { code } = await this.compiler.transform(parsedModule, {
             cwd: this.sourceRoot,
             filename: sourcePath,
             sourceFileName: sourcePath,
