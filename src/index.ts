@@ -2,7 +2,7 @@ import path from 'path'
 import IstanbulLibCoverage from 'istanbul-lib-coverage'
 import { Builder, BuildProvider, connectDependencyBuilder, createDependencyBuilder, createNodePolyfillBuilder, createSourceBuilder } from './builder'
 import { FileServer, HttpFileServer } from './server'
-import { AsyncFilesystem, CachedFilesystem, FileLoader, FileProvider, FsFileProvider, FsWatcher, realFilesystem, SyncFilesystem } from './files'
+import { AsyncFilesystem, CachedFilesystem, FileLoader, FileProvider, FsWatcher, realFilesystem, SyncFilesystem } from './files'
 import { TestConductor } from './conductor/TestConductor'
 import { TestRunManager } from './conductor/TestRunManager'
 import { TsConfigResolver, TsModuleResolver } from './ts'
@@ -14,11 +14,14 @@ import { Trigger } from './util/Trigger'
 import { PackageConfigResolver } from './loader/PackageConfigResolver'
 import { CjsTransformer } from './loader/CjsTransformer'
 import { ConsoleReporter } from './reporter/ConsoleReporter'
+import { FsLoader } from './loader/FsLoader'
 
 export type { TestContext } from './runner/TestContext'
 
 export async function serveDir(dir: string) {
-    const provider = new FsFileProvider(dir)
+    const provider = new FileProvider([
+        new FsLoader(dir),
+    ])
     const server = new HttpFileServer(provider)
 
     return {
