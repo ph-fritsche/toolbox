@@ -15,6 +15,9 @@ import { PackageConfigResolver } from './loader/PackageConfigResolver'
 import { CjsTransformer } from './loader/CjsTransformer'
 import { ConsoleReporter } from './reporter/ConsoleReporter'
 import { FsLoader } from './loader/FsLoader'
+import { NodeTestConductor } from './conductor/NodeTestConductor'
+import { ChromeTestConductor } from './conductor/ChromeTestConductor'
+import { fileURLToPath } from 'url'
 
 export type { TestContext } from './runner/TestContext'
 
@@ -28,15 +31,6 @@ export async function serveDir(dir: string) {
         provider,
         server,
         url: await server.url,
-    }
-}
-
-export async function serveToolboxRunner() {
-    const dir = path.dirname((new URL(import.meta.url)).pathname)
-    const s = await serveDir(dir)
-    return {
-        ...s,
-        url: `${String(s.url)}runner/index.js`,
     }
 }
 
@@ -296,14 +290,50 @@ export async function setupSourceModuleLoader({
     )
 }
 
-export function setupToolboxTester(
+export function setupNodeConductor(
+    title: string,
+    setupFiles: URL[],
+    coverageVar = '__coverage__',
+) {
+    return (runnerUrl: string) => new NodeTestConductor(runnerUrl, title, setupFiles, coverageVar)
+}
+
+export function setupChromeConductor(
+    title: string,
+    setupFiles: URL[],
+    coverageVar = '__coverage__',
+) {
+    return (runnerUrl: string) => new ChromeTestConductor(runnerUrl, title, setupFiles, coverageVar)
+}
+
+export async function setupToolboxRunner() {
+    const self = new URL(import.meta.url)
+    if (self.protocol !== 'file:') {
+        throw new Error(`Unsupported origin ${String(self)}`)
+    }
+    const provider = new FileProvider([new FsLoader(
+        path.dirname(fileURLToPath(self)),
+        new Map([
+            ['.js', 'text/javascript'],
+        ]),
+    )])
+    const server = new HttpFileServer(provider)
+
+    return {
+        url: String(await server.url) + 'runner/index' + path.extname(self.pathname),
+        close: () => server.close(),
+    }
+}
+
+export async function setupToolboxTester(
     watchedFiles: Iterable<string>,
-    conductors: Iterable<TestConductor>,
+    conductorFactories: Iterable<(runnerUrl: string) => TestConductor>,
     loaders: Iterable<FileLoader>,
     {
         managerFactory = () => new TestRunManager,
         fileProviderFactory = (loaders) => new FileProvider(loaders),
         fileServerFactory = (provider) => new HttpFileServer(provider),
+        runnerFactory = setupToolboxRunner,
         testRunIterator = TestRunIterator.iterateSuitesByConductors,
         watcherFactory = () => new FsWatcher(),
         mapPathsToTestFiles = defaults.mapPathsToTestFiles,
@@ -326,6 +356,13 @@ export function setupToolboxTester(
          * Defaults to serving files per {@link HttpFileServer}.
          */
         fileServerFactory?: (fileProvider: FileProvider) => FileServer
+        /**
+         * Factory which provides the runner module.
+         */
+        runnerFactory?: () => Promise<{
+            url: string
+            close: () => void|Promise<void>
+        }>,
         /**
          * Factory for {@link FsWatcher} which discovers and watches files in {@linkcode watchedFiles}.
          *
@@ -379,6 +416,12 @@ export function setupToolboxTester(
     let filterSuites: RegExp|undefined = undefined
     let filterTests: RegExp|undefined = undefined
 
+    const runner = await runnerFactory()
+    const conductors: TestConductor[] = []
+    for(const c of conductorFactories) {
+        conductors.push(c(runner.url))
+    }
+
     const trigger = new Trigger(async () => {
         await manager.run(
             conductors,
@@ -427,6 +470,7 @@ export function setupToolboxTester(
             for (const c of conductors) {
                 a.push(c.close())
             }
+            a.push(runner.close())
         }
         a.push(fileServer.close())
 
