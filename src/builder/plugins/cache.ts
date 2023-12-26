@@ -15,7 +15,7 @@ export type CachePluginOptions = {
      */
     lockFile?: string
     /**
-     * @default './node_modules/toolbar/cached'
+     * @default './node_modules/toolbox/cached'
      */
     cacheDir?: string,
 }
@@ -42,7 +42,7 @@ declare module 'rollup' {
 export function createCachePlugin(
     {
         lockFile = './yarn.lock',
-        cacheDir = './node_modules/.cache/toolbar/cache',
+        cacheDir = './node_modules/.cache/toolbox/cache',
         hashFiles = {},
     }: CachePluginOptions = {},
     name = 'prebuilt',
@@ -207,31 +207,33 @@ export function createCachePlugin(
             }
             return null
         },
-        async generateBundle() {
-            await Promise.all(Array.from(renderedChunks.entries()).map(([fileName, chunk]) => {
-                const id = chunk.facadeModuleId ? chunk.facadeModuleId.split('?', 2)[0] : fileName
-                const info = chunk.facadeModuleId ? this.getModuleInfo(id) : undefined
+        async generateBundle(options, bundle)  {
+            await Promise.all(Array.from(Object.entries(bundle)).map(([fileName, chunk]) => {
+                if (chunk.type === 'chunk') {
+                    const id = chunk.facadeModuleId ? chunk.facadeModuleId.split('?', 2)[0] : fileName
+                    const info = chunk.facadeModuleId ? this.getModuleInfo(id) : undefined
 
-                const idHash = createHash('sha1').update(id).digest('hex')
-                const hash = info?.meta[Cached]?.hash as string
+                    const idHash = createHash('sha1').update(id).digest('hex')
+                    const hash = info?.meta[Cached]?.hash as string
 
-                const dependencies: Cached['dependencies'] = {external: [], internal: []}
-                for (const importedId of chunk.imports) {
-                    if (renderedChunks.has(importedId)) {
-                        dependencies.internal?.push(createHash('sha1').update(importedId).digest('hex'))
-                    } else {
-                        dependencies.external?.push(importedId)
+                    const dependencies: Cached['dependencies'] = {external: [], internal: []}
+                    for (const importedId of chunk.imports) {
+                        if (renderedChunks.has(importedId)) {
+                            dependencies.internal?.push(createHash('sha1').update(importedId).digest('hex'))
+                        } else {
+                            dependencies.external?.push(importedId)
+                        }
                     }
-                }
 
-                return writeCached({
-                    idHash,
-                    hash,
-                    fileName,
-                    dependencies,
-                    code: chunk.code,
-                    map: chunk.map,
-                })
+                    return writeCached({
+                        idHash,
+                        hash,
+                        fileName,
+                        dependencies,
+                        code: chunk.code,
+                        map: chunk.map ?? undefined,
+                    })
+                }
             }))
         },
     }
