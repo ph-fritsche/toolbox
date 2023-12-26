@@ -57,6 +57,7 @@
         "lint": "eslint ."
     },
     "files": [
+        "dependencies",
         "dist"
     ],
     "main": "./dist/index.js",
