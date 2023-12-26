@@ -269,3 +269,45 @@ export function createNodeRequireResolver(catchErrors = true): ImportResolverCal
         }
     }
 }
+
+/**
+ * Dictionary of module specifiers and their replacement.
+ *
+ * `{'@foo/bar': 'BAR'}` will replace the import of `@foo/bar` with
+ * - `globalThis.BAR` as default export
+ *
+ * Named exports need to be statically defined.  \
+ * `{'@foo/bar': {default: 'BAR', x: 'X', y: null}}` will replace the import with
+ * - `globalThis.BAR` as default export
+ * - `globalThis.X` as named export `x`
+ * - `globalThis.BAR.y` as named export `y`
+ */
+export type GlobalsResolverDict = Record<string, string|Record<string, string|null>>
+
+/**
+ * Replace modules with global variables.
+ *
+ * This will replace the imports with a `data:` module that exports the global variables.
+ */
+export function createGlobalsResolver(
+    globalVars: GlobalsResolverDict,
+): ImportResolverCallback {
+    return (resolved, specifier) => {
+        if (specifier.startsWith('.') || !(specifier in globalVars)) {
+            return undefined
+        }
+        const entry = globalVars[specifier]
+        const normalized = typeof entry === 'string' ? {default: entry} : entry
+        const statements = []
+        for (const [name, key] of Object.entries(normalized)) {
+            if (name === 'default') {
+                statements.push(`export default globalThis[${JSON.stringify(key)}]`)
+            } else if (key === null) {
+                statements.push(`export const ${name} = globalThis[${JSON.stringify(normalized.default)}][${JSON.stringify(name)}]`)
+            } else {
+                statements.push(`export const ${name} = globalThis[${JSON.stringify(key)}]`)
+            }
+        }
+        return `data:text/javascript,${statements.join(';')}`
+    }
+}

@@ -7,7 +7,7 @@ import { TestConductor } from './conductor/TestConductor'
 import { TestRunManager } from './conductor/TestRunManager'
 import { TsConfigResolver, TsModuleResolver } from './ts'
 import { ModuleLoader, ModuleTransformer } from './loader/ModuleLoader'
-import { ImportResolverStack, constrainResolverToImporter, createNodeBuiltinResolver, createNodeImportResolver, createToRelativeResolver, createTsResolver, ImportResolverCallback, createNodeRequireResolver, constrainResolverToResolved, ImportResolverResolvedConstrain } from './loader/ImportResolver'
+import { ImportResolverStack, constrainResolverToImporter, createNodeBuiltinResolver, createNodeImportResolver, createToRelativeResolver, createTsResolver, ImportResolverCallback, createNodeRequireResolver, constrainResolverToResolved, ImportResolverResolvedConstrain, createGlobalsResolver, GlobalsResolverDict } from './loader/ImportResolver'
 import {TestFile, TestRunStack, TestSuite } from './conductor/TestRun'
 import { TestRunIterator } from './conductor/TestRunIterator'
 import { Trigger } from './util/Trigger'
@@ -162,6 +162,7 @@ export async function setupSourceModuleLoader({
     cachedFs = true,
     sourceRoot = process.cwd(),
     nodePolyfill,
+    globals = {},
     instrument = !!process.env.CI,
     additionalTransformers = [],
     cjsTransformer = true,
@@ -193,6 +194,10 @@ export async function setupSourceModuleLoader({
      * which will result in the `ModuleLoader` to fail loading the importing module.
      */
     nodePolyfill?: Record<string, string>
+    /**
+     * Replace import specifiers with `data:` modules that reexport global variables.
+     */
+    globals?: GlobalsResolverDict
     /**
      * Instrument modules to collect code coverage.
      *
@@ -245,6 +250,7 @@ export async function setupSourceModuleLoader({
 
     const resolvers: ImportResolverCallback[] = [
         createNodeBuiltinResolver(nodePolyfill),
+        createGlobalsResolver(globals),
         constrainResolverToImporter(
             createTsResolver(tsConfigResolver, tsModuleResolver),
             {exclude: [/(^|\/)node_modules\//]},

@@ -1,4 +1,4 @@
-import { ImportResolverStack, constrainResolverToImporter, constrainResolverToResolved, createNodeBuiltinResolver, createNodeImportResolver, createNodeRequireResolver, createToRelativeResolver, createTsResolver } from '#src/loader/ImportResolver'
+import { ImportResolverStack, constrainResolverToImporter, constrainResolverToResolved, createGlobalsResolver, createNodeBuiltinResolver, createNodeImportResolver, createNodeRequireResolver, createToRelativeResolver, createTsResolver } from '#src/loader/ImportResolver'
 import { TsConfigResolver, TsModuleResolver } from '#src/ts'
 import { setupFilesystemMock } from '#test/_fsMock'
 import { pathToFileURL } from 'url'
@@ -207,4 +207,29 @@ test('resolve node built-in modules', async () => {
     expect(onMissing).not.toBeCalled()
     expect(resolveMissing(undefined, 'node:process', new URL('prot://host/foo'))).toBe('resolved-module')
     expect(onMissing).toBeCalledWith('process', new URL('prot://host/foo'))
+})
+
+test('resolve to global variables', async () => {
+    Object.assign(globalThis, {
+        'some-var': 'FOO',
+        'other-var': 'BAR',
+        'third-var': {
+            x: 1,
+            y: 2,
+        },
+    })
+    const resolve = async (specifier: string) => {
+        const resolved = await createGlobalsResolver({
+            '@example/foo': 'some-var',
+            '@example/bar': 'other-var',
+            '@example/baz': {default: 'third-var', x: 'other-var', y: null},
+        })(undefined, specifier, new URL('test://host'))
+        return resolved && await import(resolved) as unknown
+    }
+
+    expect(await resolve('@example/foo')).toMatchObject({default: 'FOO'})
+    expect(await resolve('@example/bar')).toMatchObject({default: 'BAR'})
+    expect(await resolve('@example/baz')).toMatchObject({default: {x: 1, y: 2}, x: 'BAR', y: 2})
+    expect(await resolve('./relative.js')).toBe(undefined)
+    expect(await resolve('@example/other')).toBe(undefined)
 })
