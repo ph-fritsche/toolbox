@@ -127,7 +127,7 @@ export class ModuleLoader implements FileLoader {
     protected getTypeFromExtension(
         filePath: string,
     ) {
-        const m = /(\.d)?\.([cm]?[tj]s|[tj]x?)$/.exec(filePath)
+        const m = /(\.d)?\.([cm]?[tj]sx?)$/.exec(filePath)
         return !m ? 'unsupported'
             : m[1] ? 'declaration'
                 : m[2].includes('t') ? 'typescript'
