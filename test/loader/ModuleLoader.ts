@@ -47,15 +47,22 @@ test('replace import sources', async () => {
     const loader = setupModuleLoader({
         '/project/some/file.js': `
             import 'a';
-            import 'b';
+            import z from 'b';
+            import * as y from 'c';
+            import {w as D, x} from 'd'
+            console.log(w, x, y, z);
         `,
     }, resolve)
 
     const result = await loader.load('some/file.js')
-    expect(resolve).toHaveBeenNthCalledWith(1, 'a', new URL('file:///project/some/file.js'))
-    expect(resolve).toHaveBeenNthCalledWith(2, 'b', new URL('file:///project/some/file.js'))
+    expect(resolve).toHaveBeenNthCalledWith(1, 'a', new URL('file:///project/some/file.js'), [])
+    expect(resolve).toHaveBeenNthCalledWith(2, 'b', new URL('file:///project/some/file.js'), ['default'])
+    expect(resolve).toHaveBeenNthCalledWith(3, 'c', new URL('file:///project/some/file.js'), ['*'])
+    expect(resolve).toHaveBeenNthCalledWith(4, 'd', new URL('file:///project/some/file.js'), ['w', 'x'])
     expect(result?.content).toMatch('import "foo";')
-    expect(result?.content).toMatch('import "bar";')
+    expect(result?.content).toMatch('import z from "bar";')
+    expect(result?.content).toMatch('import * as y from "bar";')
+    expect(result?.content).toMatch('import { w as D, x } from "bar";')
 })
 
 test('instrument code', async () => {

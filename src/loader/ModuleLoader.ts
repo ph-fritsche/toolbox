@@ -77,10 +77,26 @@ export class ModuleLoader implements FileLoader {
 
         const resolved: Promise<void>[] = []
         for (const stmt of parsedModule.body) {
-            const source = 'source' in stmt ? stmt.source : undefined
-            if (source) {
+            if ('source' in stmt && stmt.source) {
+                const importedNames = []
+                if (stmt.type === 'ExportAllDeclaration') {
+                    importedNames.push('*')
+                } else {
+                    for (const s of stmt.specifiers) {
+                        if (s.type === 'ImportNamespaceSpecifier' || s.type === 'ExportNamespaceSpecifier') {
+                            importedNames.push('*')
+                        } else if (s.type === 'ImportDefaultSpecifier' || s.type === 'ExportDefaultSpecifier') {
+                            importedNames.push('default')
+                        } else if (s.type === 'ImportSpecifier') {
+                            importedNames.push((s.imported ?? s.local).value)
+                        } else if (s.type === 'ExportSpecifier') {
+                            importedNames.push(s.orig.value)
+                        }
+                    }
+                }
                 resolved.push((async () => {
-                    source.value = await this.resolver.resolve(source.value, sourceUrl)
+                    const source = stmt.source as swc.StringLiteral
+                    source.value = await this.resolver.resolve(source.value, sourceUrl, importedNames)
                     delete source.raw
                 })())
             }

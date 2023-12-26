@@ -7,10 +7,11 @@ export interface ImportResolver {
     resolve(
         specifier: string,
         importerUrl: URL,
+        importedNames: string[],
     ): Promise<string>|string
 }
 
-export class ImportResolverStack implements ImportResolverStack {
+export class ImportResolverStack implements ImportResolver {
     constructor(
         protected readonly callbacks: Iterable<ImportResolverCallback>,
     ) {}
@@ -18,10 +19,11 @@ export class ImportResolverStack implements ImportResolverStack {
     async resolve(
         specifier: string,
         importerUrl: URL,
+        importedNames: string[],
     ) {
         let resolved = undefined
         for (const f of this.callbacks) {
-            resolved = await f(resolved, specifier, importerUrl) || resolved
+            resolved = await f(resolved, specifier, importerUrl, importedNames) || resolved
         }
         resolved = resolved?.replace(/^node:\/\//, 'node:')
         return String(resolved ?? specifier)
@@ -40,6 +42,7 @@ export type ImportResolverCallback = (
     resolved: string|undefined,
     specifier: string,
     importerUrl: URL,
+    importedNames: string[],
 ) => Promise<string|undefined>|string|undefined
 
 function isConstrainHit<A extends unknown[]>(
@@ -72,7 +75,7 @@ export function constrainResolverToImporter(
 ): ImportResolverCallback {
     rootDirUrl += rootDirUrl.endsWith('/') ? '' : '/'
 
-    return (resolved, specifier, importerUrl) => {
+    return (resolved, specifier, importerUrl, importedNames) => {
         const absolute = String(importerUrl)
         if (!absolute.startsWith(rootDirUrl)) {
             return undefined
@@ -85,7 +88,7 @@ export function constrainResolverToImporter(
             return undefined
         }
 
-        return cb(resolved, specifier, importerUrl)
+        return cb(resolved, specifier, importerUrl, importedNames)
     }
 }
 
@@ -107,7 +110,7 @@ export function constrainResolverToResolved(
 ): ImportResolverCallback {
     rootDirUrl += rootDirUrl.endsWith('/') ? '' : '/'
 
-    return (resolved, specifier, importerUrl) => {
+    return (resolved, specifier, importerUrl, importedNames) => {
         if (!resolved) {
             return undefined
         }
@@ -124,7 +127,7 @@ export function constrainResolverToResolved(
             return undefined
         }
 
-        return cb(resolved, specifier, importerUrl)
+        return cb(resolved, specifier, importerUrl, importedNames)
     }
 }
 
@@ -273,14 +276,16 @@ export function createNodeRequireResolver(catchErrors = true): ImportResolverCal
 /**
  * Dictionary of module specifiers and their replacement.
  *
- * `{'@foo/bar': 'BAR'}` will replace the import of `@foo/bar` with
- * - `globalThis.BAR` as default export
+ * With `{'@foo/bar': 'BAR'}`
+ * the declaration `import Main, { Name } from '@foo/bar'`
+ * will result in `Main = globalThis.BAR` and `Name = globalThis.BAR.Name`.
  *
- * Named exports need to be statically defined.  \
- * `{'@foo/bar': {default: 'BAR', x: 'X', y: null}}` will replace the import with
- * - `globalThis.BAR` as default export
- * - `globalThis.X` as named export `x`
- * - `globalThis.BAR.y` as named export `y`
+ * Named exports can also be resolved to another variable.
+ * With `{@foo/bar': {default: 'BAR', Name: 'BAZ'}}`
+ * the declaration `import Main, { Name } from '@foo/bar'`
+ * will result in `Main = globalThis.BAR` and `Name = globalThis.BAZ`
+ *
+ * Namespace imports/reexports `import * as X from '@foo/bar'` are unsupported.
  */
 export type GlobalsResolverDict = Record<string, string|Record<string, string|null>>
 
@@ -292,20 +297,22 @@ export type GlobalsResolverDict = Record<string, string|Record<string, string|nu
 export function createGlobalsResolver(
     globalVars: GlobalsResolverDict,
 ): ImportResolverCallback {
-    return (resolved, specifier) => {
+    return (resolved, specifier, importerUrl, importedNames) => {
         if (specifier.startsWith('.') || !(specifier in globalVars)) {
             return undefined
         }
         const entry = globalVars[specifier]
         const normalized = typeof entry === 'string' ? {default: entry} : entry
         const statements = []
-        for (const [name, key] of Object.entries(normalized)) {
+        for (const name of importedNames) {
             if (name === 'default') {
-                statements.push(`export default globalThis[${JSON.stringify(key)}]`)
-            } else if (key === null) {
-                statements.push(`export const ${name} = globalThis[${JSON.stringify(normalized.default)}][${JSON.stringify(name)}]`)
+                statements.push(`export default globalThis[${JSON.stringify(normalized.default)}]`)
+            } else if (name === '*') {
+                throw new Error('Namespace import from variable is not supported.')
+            } else if (normalized[name]) {
+                statements.push(`export const ${name} = globalThis[${JSON.stringify(normalized[name])}]`)
             } else {
-                statements.push(`export const ${name} = globalThis[${JSON.stringify(key)}]`)
+                statements.push(`export const ${name} = globalThis[${JSON.stringify(normalized.default)}][${JSON.stringify(name)}]`)
             }
         }
         return `data:text/javascript,${statements.join(';')}`
