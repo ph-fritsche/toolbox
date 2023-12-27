@@ -19,10 +19,14 @@ async function setupConductor() {
     return {conductor, fileServer}
 }
 
+// Launching browser sometimes causes timeouts in CI
+// If you happen to know why, please file an issue!
+const generousTimeout = 30_000
+
 test('launch browser', async () => {
     const {conductor} = await setupConductor()
     await conductor.browser
-}, 30_000) // launching browser might be slow in CI
+}, generousTimeout)
 
 test('conduct test', async () => {
     const {conductor, fileServer} = await setupConductor()
@@ -44,7 +48,7 @@ test('conduct test', async () => {
     expect(getTestFunction(suite, 2).result.get()).toHaveProperty('type', 'fail')
 
     expect((await (await conductor.browser).pages()).length).toBe(0)
-})
+}, generousTimeout)
 
 test('abort test', async () => {
     const { conductor, fileServer } = await setupConductor()
@@ -68,4 +72,4 @@ test('abort test', async () => {
     expect(suite.state).toBe('skipped')
     expect(getTestFunction(suite, 1).result.get()).toHaveProperty('type', 'success')
     expect(getTestFunction(suite, 2).result.get()).toBe(undefined)
-})
+}, generousTimeout)
