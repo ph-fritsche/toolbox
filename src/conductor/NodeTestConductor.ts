@@ -103,21 +103,21 @@ const fetch = global.fetch
 const exit = process.exit
 const setTimeout = global.setTimeout
 
-;(async () => {
-    await new TestRunner(
-        new HttpReporterClient(
-            ${JSON.stringify(await this.reporterServer.url)},
-            fetch,
-            ${JSON.stringify(reporterId)},
-        ),
-        setTimeout,
-    ).run(
-        ${JSON.stringify(this.setupFiles)},
-        ${JSON.stringify(suiteUrl)},
-        ${filter ? `new RegExp(${JSON.stringify(filter.source)}, ${JSON.stringify(filter.flags)})` : JSON.stringify(undefined)},
-        ${JSON.stringify(this.coverageVar)},
-    )
-})()
+await new TestRunner(
+    new HttpReporterClient(
+        ${JSON.stringify(await this.reporterServer.url)},
+        fetch,
+        ${JSON.stringify(reporterId)},
+    ),
+    setTimeout,
+).run(
+    ${JSON.stringify(this.setupFiles)},
+    ${JSON.stringify(suiteUrl)},
+    ${filter ? `new RegExp(${JSON.stringify(filter.source)}, ${JSON.stringify(filter.flags)})` : JSON.stringify(undefined)},
+    ${JSON.stringify(this.coverageVar)},
+)
+
+exit()
         `
 
         const whenClosed = (stream: internal.Readable) => stream.closed ? Promise.resolve() : new Promise(r => stream.on('close', r))

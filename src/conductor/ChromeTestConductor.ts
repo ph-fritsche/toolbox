@@ -78,21 +78,19 @@ import { TestRunner, HttpReporterClient } from "${this.testRunnerModule}"
 const fetch = window.fetch.bind(window)
 const setTimeout = window.setTimeout.bind(window)
 
-await ((async () => {
-    await new TestRunner(
-        new HttpReporterClient(
-            ${JSON.stringify(await this.reporterServer.url)},
-            fetch,
-            ${JSON.stringify(reporterId)},
-        ),
-        setTimeout,
-    ).run(
-        ${JSON.stringify(this.setupFiles)},
-        ${JSON.stringify(suiteUrl)},
-        ${filter ? `new RegExp(${JSON.stringify(filter.source)}, ${JSON.stringify(filter.flags)})` : JSON.stringify(undefined)},
-        ${JSON.stringify(this.coverageVar)},
-    )
-})()).then(
+await new TestRunner(
+    new HttpReporterClient(
+        ${JSON.stringify(await this.reporterServer.url)},
+        fetch,
+        ${JSON.stringify(reporterId)},
+    ),
+    setTimeout,
+).run(
+    ${JSON.stringify(this.setupFiles)},
+    ${JSON.stringify(suiteUrl)},
+    ${filter ? `new RegExp(${JSON.stringify(filter.source)}, ${JSON.stringify(filter.flags)})` : JSON.stringify(undefined)},
+    ${JSON.stringify(this.coverageVar)},
+).then(
     r => window['${callbackPrefix}-resolve'](String(r)),
     r => window['${callbackPrefix}-reject'](r instanceof Error ? r.stack : String(r)),
 )
