@@ -134,6 +134,21 @@
     "@nodelib/fs.scandir" "2.1.5"
     fastq "^1.6.0"
 
+"@ph.fritsche/cjstoesm@^2.1.3-alpha.1":
+  version "2.1.3-alpha.1"
+  resolved "https://registry.yarnpkg.com/@ph.fritsche/cjstoesm/-/cjstoesm-2.1.3-alpha.1.tgz#05ccd78aaab1d1e5affa98cc06b64b0f2f6ee8fd"
+  integrity sha512-xbyc0UKXD7laBro1PRzPBRZOf343q/YAteJSi0Y5KJrIaEuTAX1XyQGvGJ3Z6Rxh3YN8bL10oiLq7CahnT9VAg==
+  dependencies:
+    "@wessberg/stringutil" "^1.0.19"
+    ansi-colors "^4.1.3"
+    commander "^9.3.0"
+    compatfactory "^1.0.1"
+    crosspath "^2.0.0"
+    fast-glob "^3.2.11"
+    helpertypes "^0.0.18"
+    reserved-words "^0.1.2"
+    resolve "^1.22.0"
+
 "@ph.fritsche/eslint-config@^3.0.0-beta":
   version "3.0.0-beta.7"
   resolved "https://registry.yarnpkg.com/@ph.fritsche/eslint-config/-/eslint-config-3.0.0-beta.7.tgz#e13774ead8374ce29ed34c8542cb2a18352165dd"
@@ -927,19 +942,6 @@ ci-info@^3.2.0:
   version "3.9.0"
   resolved "https://registry.yarnpkg.com/ci-info/-/ci-info-3.9.0.tgz#4279a62028a7b1f262f3473fc9605f5e218c59b4"
   integrity sha512-NIxF55hv4nSqQswkAeiOi1r83xy8JldOFDTWiug55KBu9Jnblncd2U6ViHmYgHf01TPZS77NJBhBMKdWj9HQMQ==
-
-"cjstoesm@file:./dependencies/cjstoesm":
-  version "2.1.2"
-  dependencies:
-    "@wessberg/stringutil" "^1.0.19"
-    ansi-colors "^4.1.3"
-    commander "^9.3.0"
-    compatfactory "^1.0.1"
-    crosspath "^2.0.0"
-    fast-glob "^3.2.11"
-    helpertypes "^0.0.18"
-    reserved-words "^0.1.2"
-    resolve "^1.22.0"
 
 cliui@^8.0.1:
   version "8.0.1"

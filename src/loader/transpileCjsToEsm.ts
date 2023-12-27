@@ -1,5 +1,5 @@
 import ts from 'typescript'
-import { cjsToEsmTransformer, CjsToEsmOptions } from 'cjstoesm'
+import { cjsToEsmTransformer, CjsToEsmOptions } from '@ph.fritsche/cjstoesm'
 
 /**
  * Transpile module per Typescript compiler and `cjstoesm` transformer.
