@@ -1,47 +1,26 @@
-import { CachedFilesystem, FileProvider, realFilesystem } from '#src/files'
+import { FileProvider } from '#src/files'
 import { HttpFileServer } from '#src/server'
-import { rollup } from 'rollup'
 import { afterThis } from '#test/_util'
-import { createNodeResolvePlugin, createTsResolvePlugin } from '#src/builder/plugins/resolve'
-import { createTransformPlugin } from '#src/builder/plugins/transform'
 import { createTestRun } from '#src/conductor/TestRun'
 import { NodeTestConductor } from '#src/conductor/NodeTestConductor'
 import { getTestFunction } from './_helper'
-import { TsConfigResolver, TsModuleResolver } from '#src/ts'
-
-let fileServer: HttpFileServer
-beforeAll(async () => {
-    const cachedFs = new CachedFilesystem(realFilesystem)
-    const build = await rollup({
-        input: './src/runner/index.ts',
-        plugins: [
-            createTsResolvePlugin(new TsConfigResolver(cachedFs), new TsModuleResolver(cachedFs)),
-            createNodeResolvePlugin(),
-            createTransformPlugin({}),
-        ],
-    })
-    const {output} = await build.generate({})
-    const runnerModule = output[0].code
-
-    fileServer = new HttpFileServer(
-        new FileProvider([], new Map([
-            ['runner.js', Promise.resolve({content: runnerModule})],
-        ])),
-    )
-    await fileServer.url
-})
-afterAll(() => fileServer.close())
+import { setupToolboxRunner } from '#test/_setup'
 
 async function setupConductor() {
-    const conductor = new NodeTestConductor(`${String(await fileServer.url)}runner.js`)
+    const runner = await setupToolboxRunner()
+    const fileServer = new HttpFileServer(new FileProvider())
+
+    const conductor = new NodeTestConductor(runner.url)
 
     afterThis(() => conductor.close())
+    afterThis(() => runner.close())
+    afterThis(() => fileServer.close())
 
-    return {conductor}
+    return {conductor, fileServer}
 }
 
 test('conduct test', async () => {
-    const { conductor } = await setupConductor()
+    const { conductor, fileServer } = await setupConductor()
     fileServer.provider.files.set('some/test.js', Promise.resolve({content: `
         test('some test', () => {});
         test('failing test', () => { throw new Error('some error') });
@@ -60,7 +39,7 @@ test('conduct test', async () => {
 })
 
 test('abort test', async () => {
-    const { conductor } = await setupConductor()
+    const { conductor, fileServer } = await setupConductor()
     fileServer.provider.files.set('some/test.js', Promise.resolve({content: `
         test('some test', () => {});
         test('aborted test', () => new Promise(r => setTimeout(r, 10000)));

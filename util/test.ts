@@ -4,8 +4,7 @@ import IstanbulLibReport from 'istanbul-lib-report'
 import IstanbulLibSourceMaps from 'istanbul-lib-source-maps'
 import IstanbulReports from 'istanbul-reports'
 import { setupNodeConductor, setupSourceModuleLoader, setupToolboxTester } from '../src'
-import { FileProvider } from '../src/files'
-import { HttpFileServer } from '../src/server'
+import { setupToolboxRunner } from '../test/_setup'
 
 const coverageVariable = '__covSelf__'
 
@@ -25,18 +24,7 @@ const tester = await setupToolboxTester([
         filesImports: [/(^|\/)node_modules\//],
     }),
 ], {
-    runnerFactory: async () => {
-        const server = new HttpFileServer(new FileProvider([
-            await setupSourceModuleLoader({
-                instrument: false,
-                filesImports: [/(^|\/)node_modules\//],
-            }),
-        ]))
-        return {
-            url: String(await server.url) + 'src/runner/index.ts',
-            close: () => server.close(),
-        }
-    },
+    runnerFactory: setupToolboxRunner,
 })
 
 tester.connectCoverageReporter(async map => {
