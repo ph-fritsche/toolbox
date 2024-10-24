@@ -239,6 +239,8 @@ export async function createNodeImportResolver(catchErrors = true): Promise<Impo
 
         try {
             type R = (s: string, i: string) => Promise<string>|string
+            // `import.meta.resolve` can cause an uncaught error for `Assertion failed: file_url`
+            // See https://github.com/nodejs/node/issues/55518
             return await (import.meta.resolve as R)(specifier, String(importerUrl))
         } catch(e) {
             if (catchErrors) {

@@ -154,7 +154,9 @@ test('resolve per node import', async () => {
 
     expect(await resolve('already-resolved', 'typescript', new URL(cwd + '/foo.js'), [])).toBe(undefined)
 
-    expect(await resolve(undefined, 'typescript', new URL('http://example.org/foo.js'), [])).toBe(undefined)
+    // `import.meta.resolve` can cause an uncaught error for `Assertion failed: file_url`
+    // See https://github.com/nodejs/node/issues/55518
+    // expect(await resolve(undefined, 'typescript', new URL('http://example.org/foo.js'), [])).toBe(undefined)
 })
 
 test('resolve per node require', async () => {
