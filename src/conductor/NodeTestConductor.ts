@@ -54,7 +54,6 @@ export class NodeTestConductor extends TestConductor {
         return new AbortablePromise<void>(abortController, (resolve, reject, onTeardown) => {
             const child = spawn('node', [
                 '--input-type=module',
-                '--experimental-network-imports',
                 '--experimental-import-meta-resolve',
                 '--require', `${loaderPath}/experimental.cjs`,
                 // TODO: handle resolved source mappings in ReporterServer
@@ -123,6 +122,16 @@ exit()
         const whenClosed = (stream: internal.Readable) => stream.closed ? Promise.resolve() : new Promise(r => stream.on('close', r))
         await new Promise<void>((res, rej) => {
             child.on('error', rej)
+
+            child.stdin.on('error', (e: NodeJS.ErrnoException) => {
+                child.kill()
+                if (e.code === 'EPIPE') {
+                    // Bad options cause pipe errors on stdin.
+                    // Just killing the child provides a clearer error message.
+                } else {
+                    throw e
+                }
+            })
 
             child.stdin.end(childCode)
 
