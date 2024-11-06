@@ -1,29 +1,31 @@
 const dispatch = Symbol('Dispatch event')
 
-export function createEventEmitter<EventMap>(
-    parent?: EventEmitter<EventMap>,
+type EventMap = {[k in string]: object|null|undefined}
+
+export function createEventEmitter<Events extends EventMap>(
+    parent?: EventEmitter<Events>,
 ) {
-    const emitter = new EventEmitter<EventMap>(parent)
+    const emitter = new EventEmitter<Events>(parent)
     const dispatch = getEventDispatch(emitter)
 
     return [emitter, dispatch] as const
 
 }
 
-export function getEventDispatch<EventMap>(
-    emitter: EventEmitter<EventMap>,
+export function getEventDispatch<Events extends EventMap>(
+    emitter: EventEmitter<Events>,
 ) {
     return emitter[dispatch].bind(emitter)
 }
 
-export class EventEmitter<EventMap> {
+export class EventEmitter<Events extends EventMap> {
     constructor(
-        parent?: EventEmitter<EventMap>,
+        parent?: EventEmitter<Events>,
     ) {
         this.#parent = parent
     }
 
-    [dispatch]<K extends keyof EventMap>(type: K, init: EventMap[K]) {
+    [dispatch]<K extends keyof Events>(type: K, init: Events[K]) {
         const event = { type, ...init }
         setImmediate(() => {
             for (const l of this.#iterateListeners(type)) {
@@ -42,22 +44,22 @@ export class EventEmitter<EventMap> {
     }
     #parent?: EventEmitter<Events>
     #listeners: {
-        [K in keyof EventMap]?: Set<EventHandler<EventMap, K>>
+        [K in keyof Events]?: Set<EventHandler<Events, K>>
     } = {}
 
-    addListener<K extends keyof EventMap>(type: K, handler: EventHandler<EventMap, K>) {
-        this.#listeners[type] ??= new Set<EventHandler<EventMap, K>>()
+    addListener<K extends keyof Events>(type: K, handler: EventHandler<Events, K>) {
+        this.#listeners[type] ??= new Set<EventHandler<Events, K>>()
         this.#listeners[type]?.add(handler)
 
         return () => this.removeListener(type, handler)
     }
 
-    removeListener<K extends keyof EventMap>(type: K, handler: EventHandler<EventMap, K>) {
+    removeListener<K extends keyof Events>(type: K, handler: EventHandler<Events, K>) {
         this.#listeners[type]?.delete(handler)
     }
 
-    once<K extends keyof EventMap>(type: K, handler: EventHandler<EventMap, K>) {
-        const h: EventHandler<EventMap, K> = e => {
+    once<K extends keyof Events>(type: K, handler: EventHandler<Events, K>) {
+        const h: EventHandler<Events, K> = e => {
             this.removeListener(type, h)
             handler(e)
         }
@@ -67,10 +69,10 @@ export class EventEmitter<EventMap> {
     }
 }
 
-export type EventMapOf<Emitter extends EventEmitter<unknown>> = Emitter extends EventEmitter<infer M> ? M : never
+export type EventMapOf<Emitter> = Emitter extends EventEmitter<infer M> ? M : never
 
 export type Event<EventMap, K extends keyof EventMap> = {
     type: K
-} & EventMap[K]
+} & (EventMap[K] extends object ? EventMap[K] : unknown)
 
 export type EventHandler<EventMap, K extends keyof EventMap> = (event: Event<EventMap, K>) => void

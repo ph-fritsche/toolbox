@@ -11,7 +11,7 @@ const coverageVariable = '__covSelf__'
 const PROJECT_ROOT_PATH = path.resolve(path.dirname(url.fileURLToPath(import.meta.url)), `../`)
 const PROJECT_ROOT_URL = String(url.pathToFileURL(PROJECT_ROOT_PATH))
 
-const tester = await setupToolboxTester([
+const {cli, connectCoverageReporter} = await setupToolboxTester([
     'src',
     'test',
 ], [
@@ -25,9 +25,10 @@ const tester = await setupToolboxTester([
     }),
 ], {
     runnerFactory: setupToolboxRunner,
+    connectConsoleReporter: false,
 })
 
-tester.connectCoverageReporter(async map => {
+connectCoverageReporter(async map => {
     const sourceStore = IstanbulLibSourceMaps.createSourceMapStore()
     const reportContext = IstanbulLibReport.createContext({
         coverageMap: await sourceStore.transformCoverage(map),
@@ -44,4 +45,4 @@ tester.connectCoverageReporter(async map => {
     IstanbulReports.create('text').execute(reportContext)
 })
 
-await tester.start()
+await cli.open()

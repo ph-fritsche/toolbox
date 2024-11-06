@@ -41,6 +41,8 @@ export class TestRunManager extends EventEmitter<TestRunManagerEventMap> {
         } finally {
             this.dispatch('done', { run })
         }
+
+        return run
     }
 
     async exec(

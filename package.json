@@ -6,10 +6,12 @@
         "typescript": "^4.7.0 || ^5.0.0"
     },
     "dependencies": {
+        "@ph.fritsche/cjstoesm": "^2.1.3-alpha.1",
         "@swc/core": "^1.3.100",
         "chokidar": "^3.5.3",
-        "@ph.fritsche/cjstoesm": "^2.1.3-alpha.1",
+        "ink": "^5.1.0",
         "puppeteer-core": "^21.5.1",
+        "react": "^18.3.1",
         "source-map": "^0.7.4",
         "swc-plugin-coverage-instrument": "^0.0.20"
     },
@@ -22,6 +24,7 @@
         "@types/istanbul-lib-source-maps": "^4.0.1",
         "@types/istanbul-reports": "^3.0.1",
         "@types/node": "^18",
+        "@types/react": "^18.3.12",
         "@types/sinonjs__fake-timers": "^8.1.5",
         "eslint": "^8.39.0",
         "expect": "^29.5.0",
@@ -45,7 +48,8 @@
         "setup": "node ./util/setup.js",
         "test": "node --require ./src/node/experimental.cjs --experimental-loader ./build/loader-src.js --experimental-import-meta-resolve --enable-source-maps ./util/test.ts",
         "typecheck": "tsc && tsc -p test/tsconfig.json",
-        "lint": "eslint ."
+        "lint": "eslint .",
+        "ui": "node --require ./src/node/experimental.cjs --experimental-loader ./build/loader-src.js --experimental-import-meta-resolve --enable-source-maps --watch ./util/ui.ts"
     },
     "files": [
         "dist"

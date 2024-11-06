@@ -9,7 +9,6 @@ import { ModuleLoader, ModuleTransformer } from './loader/ModuleLoader'
 import { ImportResolverStack, constrainResolverToImporter, createNodeBuiltinResolver, createNodeImportResolver, createToRelativeResolver, createTsResolver, ImportResolverCallback, createNodeRequireResolver, constrainResolverToResolved, ImportResolverResolvedConstrain, createGlobalsResolver, GlobalsResolverDict } from './loader/ImportResolver'
 import {TestFile, TestRunStack, TestSuite } from './conductor/TestRun'
 import { TestRunIterator } from './conductor/TestRunIterator'
-import { Trigger } from './util/Trigger'
 import { PackageConfigResolver } from './loader/PackageConfigResolver'
 import { CjsTransformer } from './loader/CjsTransformer'
 import { ConsoleReporter } from './reporter/ConsoleReporter'
@@ -17,6 +16,8 @@ import { FsLoader } from './loader/FsLoader'
 import { NodeTestConductor } from './conductor/NodeTestConductor'
 import { ChromeTestConductor } from './conductor/ChromeTestConductor'
 import { fileURLToPath } from 'url'
+import { Tester } from './ui/Tester'
+import { TesterCli } from './ui/cli/TesterCli'
 
 export type { TestContext } from './runner/TestContext'
 
@@ -353,29 +354,11 @@ export async function setupToolboxTester(
     watcher.onChange(p => fileProvider.invalidate(p))
     void watcher.watch(...watchedFiles)
 
-    let filterSuites: RegExp|undefined = undefined
-    let filterTests: RegExp|undefined = undefined
-
     const runner = await runnerFactory()
     const conductors: TestConductor[] = []
     for(const c of conductorFactories) {
         conductors.push(c(runner.url))
     }
-
-    const trigger = new Trigger(async () => {
-        await manager.run(
-            conductors,
-            mapPathsToTestFiles(await fileServer.url, watcher.files()),
-            testRunIterator,
-            filterSuites,
-            filterTests,
-        )
-    }, 20)
-
-    watcher.onChange(p => {
-        manager.abort(`Change in ${p}`)
-        void trigger.activate()
-    })
 
     const consoleReporter = new ConsoleReporter()
     if (connectConsoleReporter) {
@@ -383,16 +366,22 @@ export async function setupToolboxTester(
         manager.addListener('done', ({run}) => consoleReporter.disconnect(run))
     }
 
-    let active = false
+    const tester = new Tester(
+        manager,
+        conductors,
+        watcher,
+        await fileServer.url,
+        mapPathsToTestFiles,
+        testRunIterator,
+        setExitCode,
+    )
+
     const start = async ({
         persistent = !process.env.CI,
     }: {
         persistent?: boolean
     } = {}) => {
-        await watcher.ready
-
-        active = true
-        await trigger.activate()
+        await tester.start()
 
         if (!persistent) {
             void close()
@@ -400,12 +389,11 @@ export async function setupToolboxTester(
     }
 
     const close = async (closeConductors = true) => {
-        active = false
+        await tester.stop()
+
         await watcher.close()
-        manager.abort('close')
 
         const a = []
-
         if (closeConductors) {
             for (const c of conductors) {
                 a.push(c.close())
@@ -413,68 +401,55 @@ export async function setupToolboxTester(
             a.push(runner.close())
         }
         a.push(fileServer.close())
-
         await Promise.allSettled(a)
+
+        await tester[Symbol.asyncDispose]()
     }
 
-    const setSuitesFilter = (filter: RegExp|undefined) => {
-        filterSuites = filter
-        if (active) {
-            void trigger.activate()
+    const cli = new TesterCli(tester)
+    cli.onClose(async() => {
+        await watcher.close()
+
+        const a = []
+        for (const c of conductors) {
+            a.push(c.close())
         }
-    }
+        a.push(runner.close())
+        a.push(fileServer.close())
+        await Promise.allSettled(a)
 
-    const setTestsFilter = (filter: RegExp|undefined) => {
-        filterTests = filter
-        if (active) {
-            void trigger.activate()
-        }
-    }
-
-    if (setExitCode) {
-        process.exitCode = 2
-        manager.addListener('done', ({run}) => {
-            if (run.index.errors.size) {
-                process.exitCode = 1
-            } else if (run.index.results.size === 0) {
-                process.exitCode = 2
-            } else if (run.index.results.MIXED.size || run.index.results.fail.size || run.index.results.timeout.size) {
-                process.exitCode = 3
-            } else if (run.index.results.skipped.size) {
-                process.exitCode = Math.max(process.exitCode ?? 0, 2)
-            } else {
-                process.exitCode = 0
-            }
-        })
-    }
+        await tester[Symbol.asyncDispose]()
+    })
 
     const connectCoverageReporter = (
         cb: (map: IstanbulLibCoverage.CoverageMap) => void|Promise<void>,
     ) => {
-        return manager.addListener('done', ({run}) => {
-            let hasCoverage = false
+        cli.onClose(() => {
+            const run = cli.tester.newestRun
+            if (!run) {
+                return
+            }
             const map = IstanbulLibCoverage.createCoverageMap()
             for (const suite of TestRunIterator.iterateSuitesByConductors(run)) {
                 if (suite.coverage) {
-                    hasCoverage = hasCoverage || !!Object.keys(suite.coverage).length
                     map.merge(suite.coverage)
                 }
             }
-            if (hasCoverage) {
+            if (Object.keys(map.data).length) {
                 void cb(map)
             }
         })
     }
 
     return {
+        cli,
+        tester,
         manager,
         fileProvider,
         fileServer,
         watcher,
         consoleReporter,
         connectCoverageReporter,
-        setSuitesFilter,
-        setTestsFilter,
         start,
         close,
     }
