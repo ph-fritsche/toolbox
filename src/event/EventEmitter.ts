@@ -25,14 +25,22 @@ export class EventEmitter<EventMap> {
 
     [dispatch]<K extends keyof EventMap>(type: K, init: EventMap[K]) {
         const event = { type, ...init }
-        this.#listeners[type]?.forEach(l => l(event))
-
-        if (this.#parent) {
-            this.#parent[dispatch](type, init)
-        }
+        setImmediate(() => {
+            for (const l of this.#iterateListeners(type)) {
+                l(event)
+            }
+        })
     }
 
-    #parent?: EventEmitter<EventMap>
+    *#iterateListeners<K extends keyof Events>(type: K): Generator<EventHandler<Events, K>, void, void> {
+        if (this.#listeners[type]) {
+            yield* this.#listeners[type]
+        }
+        if (this.#parent) {
+            yield* this.#parent.#iterateListeners(type)
+        }
+    }
+    #parent?: EventEmitter<Events>
     #listeners: {
         [K in keyof EventMap]?: Set<EventHandler<EventMap, K>>
     } = {}

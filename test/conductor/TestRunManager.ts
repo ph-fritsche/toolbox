@@ -4,12 +4,9 @@ import { TestRunStack } from '#src/conductor/TestRun/TestRun'
 import { TestRunIterator } from '#src/conductor/TestRunIterator'
 import { TestRunManager } from '#src/conductor/TestRunManager'
 import { promise } from '#src/util/promise'
-import { observePromise } from '#test/_util'
+import { immediate, observePromise } from '#test/_util'
 import { setupDummyConductor } from './_helper'
 
-function nextTick() {
-    return new Promise(r => setImmediate(r))
-}
 function getTestRunStates(run: TestRunInstance) {
     return Object.fromEntries(Array.from(run.suites.values()).map(s => [s.url, s.state]))
 }
@@ -62,7 +59,7 @@ test('iterate suites', async () => {
     expect(suiteExecutions[1]).toHaveProperty('filter', testFilter)
 
     suiteExecutions[0].resolve()
-    await nextTick()
+    await immediate()
 
     expect(getTestRunStates(run)).toEqual({
         'test://a.js': 'done',
@@ -77,7 +74,7 @@ test('iterate suites', async () => {
     expect(suiteExecutions[2]).toHaveProperty('suiteUrl', 'test://d.js')
 
     suiteExecutions[2].reject()
-    await nextTick()
+    await immediate()
 
     expect(run.suites.get('test://d.js')!.errors.count).toBe(1)
     expect(getTestRunStates(run)).toEqual({
@@ -93,13 +90,13 @@ test('iterate suites', async () => {
 
     suiteExecutions[1].resolve()
     suiteExecutions[3].resolve()
-    await nextTick()
+    await immediate()
 
     expect(execPromise.state).toBe('pending')
     expect(suiteExecutions[4]).toHaveProperty('suiteUrl', 'test://f.js')
 
     suiteExecutions[4].resolve()
-    await nextTick()
+    await immediate()
 
     expect(execPromise.state).toBe('resolved')
     expect(getTestRunStates(run)).toEqual({
@@ -131,7 +128,7 @@ test('abort iteration', async () => {
     expect(suiteExecutions[1]).toHaveProperty('suiteUrl', 'test://c.js')
 
     suiteExecutions[1].resolve()
-    await nextTick()
+    await immediate()
 
     expect(getTestRunStates(run)).toEqual({
         'test://a.js': 'skipped',
@@ -143,7 +140,7 @@ test('abort iteration', async () => {
     })
 
     manager.abort()
-    await nextTick()
+    await immediate()
 
     expect(execPromise.state).toBe('rejected')
     expect(getTestRunStates(run)).toEqual({
@@ -176,7 +173,7 @@ test('subsequent `exec` call aborts previous run', async () => {
     })
 
     const execPromiseB = observePromise(manager.exec(b.run.suites.values()))
-    await nextTick()
+    await immediate()
 
     expect(execPromiseA.state).toBe('rejected')
     expect(getTestRunStates(a.run)).toEqual({
@@ -217,6 +214,8 @@ test('run test files', async () => {
         {url: 'test://b.js', title: 'b'},
     ], TestRunIterator.iterateConductorsBySuites, filterSuites, filterTests))
 
+    await immediate()
+
     expect(listener).toHaveBeenNthCalledWith(1, {type: 'create', run: expect.any(TestRunStack)})
     const runARun = listener.mock.lastCall![0].run
     expect(execMock).toBeCalledTimes(1)
@@ -226,7 +225,7 @@ test('run test files', async () => {
     expect(execMock.mock.lastCall![1]).toBe(filterSuites)
     expect(execMock.mock.lastCall![2]).toBe(filterTests)
 
-    await nextTick()
+    await immediate()
 
     expect(listener).toHaveBeenNthCalledWith(2, {type: 'complete', run: runARun})
     expect(listener).toHaveBeenNthCalledWith(3, {type: 'done', run: runARun})
@@ -238,11 +237,13 @@ test('run test files', async () => {
         {url: 'test://b.js', title: 'b'},
     ], TestRunIterator.iterateConductorsBySuites))
 
+    await immediate()
+
     expect(listener).toHaveBeenNthCalledWith(4, {type: 'create', run: expect.any(TestRunStack)})
     const runBRun = listener.mock.lastCall![0].run
     expect(execMock).toBeCalledTimes(2)
 
-    await nextTick()
+    await immediate()
 
     expect(listener).toHaveBeenNthCalledWith(5, {type: 'abort', run: runBRun})
     expect(listener).toHaveBeenNthCalledWith(6, {type: 'done', run: runBRun})

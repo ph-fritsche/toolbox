@@ -8,6 +8,7 @@ import { TestResult } from '#src/conductor/TestRun/TestResult'
 import { getSuiteReporter, getTestFunction, getTestGroup, setSuiteState, setupDummyConductor, setupDummySuite, setupRunningSuite } from './_helper'
 import { createTestElements } from '#src/conductor/TestRun/createTestElements'
 import { TestNodeData } from '#src/conductor/TestReporter'
+import { immediate } from '#test/_util'
 
 test('create test run', async () => {
     const { conductor: conductorA } = setupDummyConductor('A')
@@ -76,6 +77,8 @@ test('events bubble', async () => {
 
     Reflect.get(func, 'dispatch').call(func, 'start', {foo: 'bar'})
 
+    await immediate()
+
     expect(garbage).not.toBeCalled()
     expect(onFunc).toBeCalledWith({type: 'start', foo: 'bar'})
     expect(onGroup).toBeCalledWith({type: 'start', foo: 'bar'})
@@ -102,6 +105,8 @@ test('run test suite', async () => {
 
     const execPromise = suite.exec(/some filter/)
 
+    await immediate()
+
     expect(suite.state).toBe('running')
     expect(onStart).toBeCalledWith({type: 'start', node: suite})
 
@@ -120,6 +125,8 @@ test('run test suite', async () => {
     runTestSuitePromise.resolve()
 
     await expect(execPromise).resolves.toBe(undefined)
+
+    await immediate()
 
     expect(suite.state).toBe('done')
     expect(onDone).toBeCalledWith({type: 'done', node: suite})
@@ -152,6 +159,9 @@ test('skip suite', async () => {
     suite.skip()
 
     expect(suite.state).toBe('skipped')
+
+    await immediate()
+
     expect(onSkip).toBeCalledWith({type: 'skip', node: suite})
 })
 
@@ -172,6 +182,9 @@ test('abort suite', async () => {
     await expect(execPromise).rejects.toBe(execPromise.signal)
 
     expect(suite.state).toBe('skipped')
+
+    await immediate()
+
     expect(onSkip).toBeCalledWith({type: 'skip', node: suite})
 })
 
@@ -196,7 +209,6 @@ test('schedule nodes', async () => {
         {id: 10, title: 'Group C', children: []},
     ]})
 
-    expect(onSchedule).toBeCalledWith({type: 'schedule', node: suite})
     expect(Array.from(suite.children.values())).toEqual([
         suite.nodes.get(1),
         suite.nodes.get(7),
@@ -218,6 +230,10 @@ test('schedule nodes', async () => {
     expect(suite.nodes.get(5)).toBeInstanceOf(TestFunction)
     expect((suite.nodes.get(5) as TestFunction).parent).toBe(suite.nodes.get(3))
     expect(suite.nodes.get(10)).toBeInstanceOf(TestGroup)
+
+    await immediate()
+
+    expect(onSchedule).toBeCalledWith({type: 'schedule', node: suite})
 })
 
 test('schedule multiple nodes with same title', async () => {
@@ -268,6 +284,9 @@ test('report errors', async () => {
     expect(Array.from(group.errors)).toEqual([
         new TestError('bar', {type: TestHookType.beforeEach, index: 30, name: 'some hook', cleanup: true}),
     ])
+
+    await immediate()
+
     expect(onSuiteError).toBeCalledTimes(3)
     expect(onSuiteError).toHaveBeenNthCalledWith(1, {type: 'error', node: suite, error: new TestError('foo')})
     expect(onSuiteError).toHaveBeenNthCalledWith(3, {type: 'error', node: suite, error: new TestError('baz')})
@@ -295,6 +314,9 @@ test('report results', async () => {
         error: 'some error',
         duration: 456,
     })
+
+    await immediate()
+
     expect(onResult).toBeCalledWith({type: 'result', node: testfunc, result: expect.objectContaining({type: 'fail'})})
 })
 
@@ -314,6 +336,9 @@ test('report coverage', async () => {
     getSuiteReporter(suite).complete({coverage})
 
     expect(suite.coverage).toBe(coverage)
+
+    await immediate()
+
     expect(onComplete).toBeCalledWith({type: 'complete', node: suite})
 })
 

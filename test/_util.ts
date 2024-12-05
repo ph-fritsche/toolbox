@@ -27,3 +27,7 @@ export function observePromise(promise: Promise<unknown>) {
         },
     }
 }
+
+export async function immediate() {
+    return new Promise(r => setImmediate(r))
+}
