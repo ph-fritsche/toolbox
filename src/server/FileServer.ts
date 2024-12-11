@@ -1,9 +1,10 @@
 import { EventEmitter } from '../event'
 import { FileProvider } from '../files'
 
-export type FileServerEventMap = unknown
+export type FileServerEventMap = {[k: string]: object|null|undefined}
 
-export abstract class FileServer<EventMap extends FileServerEventMap = FileServerEventMap> {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Latest Typescript versions report an error for declaration mismatch on the protected properties
+export abstract class FileServer<EventMap extends FileServerEventMap = any> {
     constructor(
         public provider: FileProvider,
     ) {
