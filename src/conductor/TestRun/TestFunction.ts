@@ -15,7 +15,7 @@ export class TestFunctionStack extends TestElementStack<TestFunction> {
         return func
     }
 
-    declare children: undefined
+    declare children: never
 
     protected static init(instance: TestFunctionStack) {
         TestElementStack.init(instance)

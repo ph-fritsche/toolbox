@@ -2,7 +2,7 @@ import { TestCompleteData, TestErrorData, TestReporter, TestResultData, TestSche
 import { TestError, TestErrorList } from './TestError'
 import { TestFunction } from './TestFunction'
 import { TestGroup } from './TestGroup'
-import { TestNodeInstance, TestNodeStack } from './TestNode'
+import { TestNodeChildren, TestNodeInstance, TestNodeStack } from './TestNode'
 import { TestElementInstance, TestElementStack } from './TestElement'
 import { TestResult } from './TestResult'
 import { TestRunInstance, TestRunStack } from './TestRun'
@@ -23,7 +23,7 @@ export class TestSuiteStack extends TestNodeStack<TestSuite> {
         return suite
     }
 
-    readonly children = new Map<string, TestElementStack>()
+    readonly children = new TestNodeChildren<TestElementStack>()
     readonly index = new TestStackIndex()
 
     protected constructor(
@@ -36,10 +36,6 @@ export class TestSuiteStack extends TestNodeStack<TestSuite> {
         }
 
         super(parent, url)
-    }
-    protected static init(instance: TestSuiteStack): void {
-        TestNodeStack.init(instance)
-        instance.parent.suites.set(instance.ident, instance)
     }
 }
 
@@ -56,7 +52,7 @@ export class TestSuite extends TestNodeInstance {
     }
 
     declare readonly stack: TestSuiteStack
-    readonly children = new Map<string, TestNodeInstance>()
+    readonly children = new TestNodeChildren<TestNodeInstance>()
     readonly index = new TestInstanceIndex()
     readonly suite: TestSuite = this
 
@@ -76,7 +72,6 @@ export class TestSuite extends TestNodeInstance {
     }
     protected static init(instance: TestSuite): void {
         TestNodeInstance.init(instance)
-        instance.run.suites.set(instance.url, instance)
         instance.run.index.suites[instance.state].add(instance)
         instance.run.stack.index.suites[instance.state].add(instance)
     }

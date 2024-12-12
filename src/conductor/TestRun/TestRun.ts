@@ -1,6 +1,6 @@
 import { TestConductor } from '../TestConductor'
 import { TestRunInstanceIndex, TestRunStackIndex } from './TestIndex'
-import { TestNodeInstance, TestNodeStack } from './TestNode'
+import { TestNodeChildren, TestNodeInstance, TestNodeStack } from './TestNode'
 import { TestSuite, TestSuiteStack } from './TestSuite'
 
 export type TestFile = {
@@ -25,7 +25,7 @@ export class TestRunStack extends TestNodeStack<TestRunInstance> {
 
     readonly runs = new Map<TestConductor, TestRunInstance>()
     readonly instances = new Map<TestRunInstance, TestRunInstance>()
-    readonly children = new Map<string, TestSuiteStack>()
+    readonly children = new TestNodeChildren<TestSuiteStack>()
     readonly index = new TestRunStackIndex()
     readonly suites = this.children
 
@@ -52,7 +52,7 @@ export class TestRunInstance extends TestNodeInstance {
     }
 
     readonly run: TestRunInstance = this
-    readonly children = new Map<string, TestSuite>()
+    readonly children = new TestNodeChildren<TestSuite>()
     readonly index = new TestRunInstanceIndex()
     readonly suites = this.children
 

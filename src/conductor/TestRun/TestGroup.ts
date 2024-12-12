@@ -2,6 +2,7 @@ import { TestErrorList } from './TestError'
 import { TestElementInstance, TestElementStack } from './TestElement'
 import { TestInstanceIndex, TestStackIndex } from './TestIndex'
 import { TestSuite, TestSuiteStack } from './TestSuite'
+import { TestNodeChildren } from './TestNode'
 
 export class TestGroupStack extends TestElementStack<TestGroup> {
     static create(
@@ -14,7 +15,7 @@ export class TestGroupStack extends TestElementStack<TestGroup> {
         return group
     }
 
-    readonly children = new Map<string, TestElementStack>()
+    readonly children = new TestNodeChildren<TestElementStack>()
     readonly index = new TestStackIndex()
 }
 
@@ -34,7 +35,7 @@ export class TestGroup extends TestElementInstance {
     }
 
     declare readonly stack: TestGroupStack
-    readonly children = new Map<string, TestElementInstance>()
+    readonly children = new TestNodeChildren<TestElementInstance>()
     readonly index = new TestInstanceIndex()
 
     readonly errors = new TestErrorList(error => {

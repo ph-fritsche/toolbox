@@ -5,7 +5,7 @@ import { TestRunInstance } from './TestRun'
 
 export abstract class TestNodeStack<T extends TestNodeInstance = TestNodeInstance> extends EventEmitter<TestEventMap> {
     readonly instances = new Map<TestRunInstance, T>()
-    readonly children?: Map<string, TestNodeStack>
+    readonly children?: TestNodeChildren<TestNodeStack>
     readonly index?: TestStackIndex
 
     protected constructor(
@@ -15,7 +15,7 @@ export abstract class TestNodeStack<T extends TestNodeInstance = TestNodeInstanc
         super(parent)
     }
     protected static init(instance: TestNodeStack): void {
-        instance.parent?.children?.set(instance.ident, instance)
+        instance.parent?.children?.add(instance.ident, instance)
     }
 
     *ancestors(includeSelf = true) {
@@ -23,11 +23,18 @@ export abstract class TestNodeStack<T extends TestNodeInstance = TestNodeInstanc
             yield el
         }
     }
+
+    get previousSibling() {
+        return this.parent?.children?.previous(this)
+    }
+    get nextSibling() {
+        return this.parent?.children?.next(this)
+    }
 }
 
 export abstract class TestNodeInstance extends EventEmitter<TestEventMap>{
     abstract readonly run: TestRunInstance
-    readonly children?: Map<string, TestNodeInstance>
+    readonly children?: TestNodeChildren<TestNodeInstance>
     readonly index?: TestInstanceIndex
 
     protected constructor(
@@ -39,7 +46,7 @@ export abstract class TestNodeInstance extends EventEmitter<TestEventMap>{
     }
     protected static init(instance: TestNodeInstance): void {
         instance.stack.instances.set(instance.run, instance)
-        instance.parent?.children?.set(instance.ident, instance)
+        instance.parent?.children?.add(instance.ident, instance)
     }
 
     protected dispatch<K extends keyof TestEventMap>(type: K, init: TestEventMap[K]): void {
@@ -51,5 +58,76 @@ export abstract class TestNodeInstance extends EventEmitter<TestEventMap>{
         for(let el = includeSelf ? this : this.parent; el; el = el.parent) {
             yield el
         }
+    }
+
+    get previousSibling() {
+        return this.parent?.children?.previous(this)
+    }
+    get nextSibling() {
+        return this.parent?.children?.next(this)
+    }
+}
+
+export class TestNodeChildren<T, Ident = string> implements Iterable<[T, Ident, number], void, undefined> {
+    #ids = new Map<T, number>()
+    #idents = new Map<Ident, T>()
+    #items: T[] = []
+
+    add(ident: Ident, item: T) {
+        if (this.#idents.has(ident)) {
+            throw new Error(`Child "${String(ident)}" already exists.`)
+        }
+
+        const i = this.#items.length
+        this.#items.push(item)
+        this.#ids.set(item, i)
+        this.#idents.set(ident, item)
+    }
+
+    has(ident: Ident) {
+        return this.#idents.has(ident)
+    }
+
+    get(ident: Ident) {
+        return this.#idents.get(ident)
+    }
+
+    get size() {
+        return this.#idents.size
+    }
+
+    getPos(item: T) {
+        const i = this.#ids.get(item)
+        if (i === undefined) {
+            throw new Error('Item is not a child')
+        }
+        return i
+    }
+
+    nth(i: number): T|undefined {
+        return this.#items[i]
+    }
+
+    previous(item: T) {
+        return this.nth(this.getPos(item) - 1)
+    }
+
+    next(item: T) {
+        return this.nth(this.getPos(item) + 1)
+    }
+
+    *[Symbol.iterator](): Generator<[T, Ident, number], void, undefined> {
+        let i = 0
+        for (const [ident, item] of this.#idents) {
+            yield [item, ident, i]
+        }
+    }
+
+    values() {
+        return this.#items.values()
+    }
+
+    keys() {
+        return this.#idents.keys()
     }
 }
