@@ -30,6 +30,13 @@ export abstract class TestNodeStack<T extends TestNodeInstance = TestNodeInstanc
     get nextSibling() {
         return this.parent?.children?.next(this)
     }
+
+    get previousNode(): TestNodeStack {
+        return getPreviousNode(this)
+    }
+    get nextNode(): TestNodeStack {
+        return getNextNode(this)
+    }
 }
 
 export abstract class TestNodeInstance extends EventEmitter<TestEventMap>{
@@ -65,6 +72,13 @@ export abstract class TestNodeInstance extends EventEmitter<TestEventMap>{
     }
     get nextSibling() {
         return this.parent?.children?.next(this)
+    }
+
+    get previousNode(): TestNodeInstance {
+        return getPreviousNode(this)
+    }
+    get nextNode(): TestNodeInstance {
+        return getNextNode(this)
     }
 }
 
@@ -108,6 +122,14 @@ export class TestNodeChildren<T, Ident = string> implements Iterable<[T, Ident, 
         return this.#items[i]
     }
 
+    get first(): T|undefined {
+        return this.#items[0]
+    }
+
+    get last(): T|undefined {
+        return this.#items[this.#items.length - 1]
+    }
+
     previous(item: T) {
         return this.nth(this.getPos(item) - 1)
     }
@@ -120,6 +142,7 @@ export class TestNodeChildren<T, Ident = string> implements Iterable<[T, Ident, 
         let i = 0
         for (const [ident, item] of this.#idents) {
             yield [item, ident, i]
+            i++
         }
     }
 
@@ -131,3 +154,45 @@ export class TestNodeChildren<T, Ident = string> implements Iterable<[T, Ident, 
         return this.#idents.keys()
     }
 }
+
+function getPreviousNode<T extends TestNodeStack|TestNodeInstance>(node: T) {
+    for (let n = node;;) {
+        const previousSibling = n.previousSibling
+        if (previousSibling) {
+            return getLastLeaf(previousSibling as T)
+        } else if (n.parent) {
+            return n.parent as T
+        } else {
+            return getLastLeaf(n)
+        }
+    }
+}
+
+function getLastLeaf<T extends TestNodeStack|TestNodeInstance>(node: T) {
+    for (let n = node;;) {
+        const lastChild = n.children?.last
+        if (lastChild) {
+            n = lastChild as T
+        } else {
+            return n
+        }
+    }
+}
+
+function getNextNode<T extends TestNodeStack|TestNodeInstance>(node: T) {
+    return (node.children?.first ?? getNextBranch(node)) as T
+}
+
+function getNextBranch<T extends TestNodeStack|TestNodeInstance>(node: T) {
+    for (let n = node;;) {
+        const nextSibling = n.nextSibling
+        if (nextSibling) {
+            return nextSibling as T
+        } else if (n.parent) {
+            n = n.parent as T
+        } else {
+            return n
+        }
+    }
+}
+
