@@ -3,8 +3,9 @@ import { TestElementInstance, TestElementStack } from './TestElement'
 import { TestInstanceIndex, TestStackIndex } from './TestIndex'
 import { TestSuite, TestSuiteStack } from './TestSuite'
 import { TestNodeChildren } from './TestNode'
+import { TestRunInstance } from './TestRun'
 
-export class TestGroupStack extends TestElementStack<TestGroup> {
+export class TestGroupStack extends TestElementStack {
     static create(
         parent: TestSuiteStack|TestGroupStack,
         ident: string,
@@ -15,6 +16,7 @@ export class TestGroupStack extends TestElementStack<TestGroup> {
         return group
     }
 
+    readonly instances = new Map<TestRunInstance, TestGroup>()
     readonly children = new TestNodeChildren<TestElementStack>()
     readonly index = new TestStackIndex()
 }

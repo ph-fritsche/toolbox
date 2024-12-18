@@ -3,7 +3,9 @@ import { TestNodeInstance, TestNodeStack } from './TestNode'
 import { TestRunInstance } from './TestRun'
 import { TestSuite, TestSuiteStack } from './TestSuite'
 
-export abstract class TestElementStack<T extends TestElementInstance = TestElementInstance> extends TestNodeStack<T> {
+export abstract class TestElementStack extends TestNodeStack {
+    abstract readonly instances: Map<TestRunInstance, TestElementInstance>
+
     protected constructor(
         readonly parent: TestSuiteStack|TestGroupStack,
         ident: string,

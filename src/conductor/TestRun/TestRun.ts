@@ -8,7 +8,7 @@ export type TestFile = {
     title: string
 }
 
-export class TestRunStack extends TestNodeStack<TestRunInstance> {
+export class TestRunStack extends TestNodeStack {
     static create(
         conductors: Iterable<TestConductor>,
         testFiles: Iterable<TestFile>,

@@ -3,8 +3,8 @@ import { TestEventMap } from './TestEvent'
 import { TestInstanceIndex, TestStackIndex } from './TestIndex'
 import { TestRunInstance } from './TestRun'
 
-export abstract class TestNodeStack<T extends TestNodeInstance = TestNodeInstance> extends EventEmitter<TestEventMap> {
-    readonly instances = new Map<TestRunInstance, T>()
+export abstract class TestNodeStack extends EventEmitter<TestEventMap> {
+    abstract readonly instances: Map<TestRunInstance, TestNodeInstance>
     readonly children?: TestNodeChildren<TestNodeStack>
     readonly index?: TestStackIndex
 

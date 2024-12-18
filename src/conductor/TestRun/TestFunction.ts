@@ -3,8 +3,9 @@ import { TestElementInstance, TestElementStack } from './TestElement'
 import { TestResultState } from './TestResult'
 import { TestSuite, TestSuiteStack } from './TestSuite'
 import { TestResultType } from './enum'
+import { TestRunInstance } from './TestRun'
 
-export class TestFunctionStack extends TestElementStack<TestFunction> {
+export class TestFunctionStack extends TestElementStack {
     static create(
         parent: TestSuiteStack|TestGroupStack,
         ident: string,
@@ -15,6 +16,7 @@ export class TestFunctionStack extends TestElementStack<TestFunction> {
         return func
     }
 
+    readonly instances = new Map<TestRunInstance, TestFunction>()
     declare children: never
 
     protected static init(instance: TestFunctionStack) {

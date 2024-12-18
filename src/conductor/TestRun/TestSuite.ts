@@ -12,7 +12,7 @@ import { CoverageMapData } from './TestCoverage'
 import { TestHook } from './TestHook'
 import { TestRunState } from './enum'
 
-export class TestSuiteStack extends TestNodeStack<TestSuite> {
+export class TestSuiteStack extends TestNodeStack {
     static create(
         stack: TestRunStack,
         url: string,
@@ -23,6 +23,7 @@ export class TestSuiteStack extends TestNodeStack<TestSuite> {
         return suite
     }
 
+    readonly instances = new Map<TestRunInstance, TestSuite>()
     readonly children = new TestNodeChildren<TestElementStack>()
     readonly index = new TestStackIndex()
 
