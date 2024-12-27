@@ -28,9 +28,9 @@ export class CachedFilesystem implements SyncFilesystem {
         }
 
         if (cache[key] instanceof CachedError) {
-            throw (cache[key] as CachedError).error
+            throw cache[key].error
         }
-        return cache[key] as T
+        return cache[key]
     }
 
     get caseSensitive() {

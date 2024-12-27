@@ -12,7 +12,7 @@ export function setupFilesystemMock(
             if (!(p in files)) {
                 throw new FileNotFound(p)
             } else if (typeof files[p] === 'string') {
-                return Buffer.from(files[p] as string)
+                return Buffer.from(files[p])
             }
             throw 'some filesystem error'
         }),
@@ -27,7 +27,7 @@ export function setupFilesystemMock(
             if (!(p in files)) {
                 throw new FileNotFound(p)
             } else if (typeof files[p] === 'string') {
-                return Promise.resolve(Buffer.from(files[p] as string))
+                return Promise.resolve(Buffer.from(files[p]))
             }
             return Promise.reject('some filesystem error')
         }),
