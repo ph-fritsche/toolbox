@@ -151,7 +151,7 @@ export class Tester extends EventEmitter<TesterEventMap> {
         } else if (run.index.results.MIXED.size || run.index.results.fail.size || run.index.results.timeout.size) {
             process.exitCode = 3
         } else if (run.index.results.skipped.size) {
-            process.exitCode = Math.max(process.exitCode ?? 0, 2)
+            process.exitCode = Math.max(Number(process.exitCode ?? 0), 2)
         } else {
             process.exitCode = 0
         }

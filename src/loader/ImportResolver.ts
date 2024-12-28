@@ -228,7 +228,7 @@ export async function createNodeImportResolver(catchErrors = true): Promise<Impo
 
     // Returns string since node@20.0
     // Support for second parameter still requires experimental flag
-    if (await import.meta.resolve('./bar.js', 'http://example.org/foo.js') !== 'http://example.org/bar.js') {
+    if (await (import.meta.resolve('./bar.js', 'http://example.org/foo.js') as string|Promise<string>) !== 'http://example.org/bar.js') {
         throw '`import.meta.resolve` does not support second parameter. Run with `--experimental-import-meta-resolve`.'
     }
 
