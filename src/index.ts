@@ -11,7 +11,6 @@ import {TestFile, TestRunStack, TestSuite } from './conductor/TestRun'
 import { TestRunIterator } from './conductor/TestRunIterator'
 import { PackageConfigResolver } from './loader/PackageConfigResolver'
 import { CjsTransformer } from './loader/CjsTransformer'
-import { ConsoleReporter } from './reporter/ConsoleReporter'
 import { FsLoader } from './loader/FsLoader'
 import { NodeTestConductor } from './conductor/NodeTestConductor'
 import { ChromeTestConductor } from './conductor/ChromeTestConductor'
@@ -278,7 +277,6 @@ export async function setupToolboxTester(
         testRunIterator = TestRunIterator.iterateSuitesByConductors,
         watcherFactory = () => new FsWatcher(),
         mapPathsToTestFiles = defaults.mapPathsToTestFiles,
-        connectConsoleReporter = true,
         setExitCode = !!process.env.CI,
     }: {
         /**
@@ -322,12 +320,6 @@ export async function setupToolboxTester(
          */
         mapPathsToTestFiles?: (fileserverUrl: URL, subPaths: Iterable<string>) => Iterable<TestFile>
         /**
-         * Automatically connect the default {@link ConsoleReporter} to test runs created on the {@link TestRunManager}.
-         *
-         * Defaults to `true`.
-         */
-        connectConsoleReporter?: boolean
-        /**
          * Set `process.exitCode` according to the test run results.
          *
          * Defaults to `true` in CI and `false` otherwise.
@@ -360,12 +352,6 @@ export async function setupToolboxTester(
         conductors.push(c(runner.url))
     }
 
-    const consoleReporter = new ConsoleReporter()
-    if (connectConsoleReporter) {
-        manager.addListener('create', ({run}) => consoleReporter.connect(run))
-        manager.addListener('done', ({run}) => consoleReporter.disconnect(run))
-    }
-
     const tester = new Tester(
         manager,
         conductors,
@@ -375,36 +361,6 @@ export async function setupToolboxTester(
         testRunIterator,
         setExitCode,
     )
-
-    const start = async ({
-        persistent = !process.env.CI,
-    }: {
-        persistent?: boolean
-    } = {}) => {
-        await tester.start()
-
-        if (!persistent) {
-            void close()
-        }
-    }
-
-    const close = async (closeConductors = true) => {
-        await tester.stop()
-
-        await watcher.close()
-
-        const a = []
-        if (closeConductors) {
-            for (const c of conductors) {
-                a.push(c.close())
-            }
-            a.push(runner.close())
-        }
-        a.push(fileServer.close())
-        await Promise.allSettled(a)
-
-        await tester[Symbol.asyncDispose]()
-    }
 
     const cli = new TesterCli(tester)
     cli.onClose(async() => {
@@ -448,9 +404,6 @@ export async function setupToolboxTester(
         fileProvider,
         fileServer,
         watcher,
-        consoleReporter,
         connectCoverageReporter,
-        start,
-        close,
     }
 }

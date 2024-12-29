@@ -10,7 +10,7 @@ For the "default" usage there are setup functions that reduce the boilerplate.
 ```js
 import { setupSourceModuleLoader, setupToolboxTester, setupNodeConductor, setupChromeConductor, serveDir } from '@ph.fritsche/toolbox'
 
-const tester = await setupToolboxTester(
+const {cli} = await setupToolboxTester(
     [ // Watched files
         'src',
         'test'
@@ -32,7 +32,7 @@ const tester = await setupToolboxTester(
 )
 
 // Run the tests with each of the conductors and report combined results
-await tester.start()
+await cli.start()
 ```
 
 ## Design
