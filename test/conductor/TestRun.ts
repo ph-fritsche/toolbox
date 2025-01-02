@@ -4,7 +4,7 @@ import { createTestRun, TestHookType, TestResultType, TestRunState } from '#src/
 import { TestError } from '#src/conductor/TestRun/TestError'
 import { TestFunction } from '#src/conductor/TestRun/TestFunction'
 import { TestGroup } from '#src/conductor/TestRun/TestGroup'
-import { TestResult } from '#src/conductor/TestRun/TestResult'
+import { TestResult, TestResultError } from '#src/conductor/TestRun/TestResult'
 import { getSuiteReporter, getTestFunction, getTestGroup, setSuiteState, setupDummyConductor, setupDummySuite, setupRunningSuite } from './_helper'
 import { createTestElements } from '#src/conductor/TestRun/createTestElements'
 import { TestNodeData } from '#src/conductor/TestReporter'
@@ -291,7 +291,7 @@ test('report errors', async () => {
     expect(onSuiteError).toHaveBeenNthCalledWith(1, {type: 'error', node: suite, error: new TestError('foo')})
     expect(onSuiteError).toHaveBeenNthCalledWith(3, {type: 'error', node: suite, error: new TestError('baz')})
     expect(onGroupError).toBeCalledTimes(1)
-    expect(onGroupError).toBeCalledWith({type: 'error', node: group, error: expect.objectContaining({error: 'bar'})})
+    expect(onGroupError).toBeCalledWith({type: 'error', node: group, error: new TestError('bar', {type: TestHookType.beforeEach, name: 'some hook', index: 30, cleanup: true})})
 })
 
 test('throw error when reporting error on function', async () => {
@@ -311,7 +311,7 @@ test('report results', async () => {
 
     expect(testfunc.result.get()).toEqual({
         type: TestResultType.fail,
-        error: 'some error',
+        error: TestResultError.from('some error'),
         duration: 456,
     })
 

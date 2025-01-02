@@ -1,15 +1,16 @@
 import { TestHook } from './TestHook'
+import { XError } from '../../error/XError'
 
-export class TestError {
+export class TestError extends XError {
     constructor(
-        readonly error: Error|string,
+        error: Error|string,
         readonly hook?: TestHook,
-    ) {}
-
-    toString() {
-        return typeof this.error === 'string'
-            ? this.error
-            : this.error.stack ?? `${this.error.name}: ${this.error.message}`
+    ) {
+        if (typeof error === 'string') {
+            super('', error)
+        } else {
+            super(error.name, error.message, error.stack, error.cause)
+        }
     }
 }
 

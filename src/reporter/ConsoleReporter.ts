@@ -97,7 +97,7 @@ export class ConsoleReporter {
                 ? `Test ${this.describeHook(error.hook)} failed.\n`
                 : `Test suite failed.\n`,
             )
-            process.stdout.write((typeof error.error === 'string' ? error.error : (error.error.stack ?? `${error.error.name}: ${error.error.message}`)).trim() + '\n')
+            process.stdout.write(String(error).trim() + '\n')
             process.stdout.write('\n')
         } else if (isEventType(event, 'done')) {
             process.stdout.write(`Results on ${event.node.run.conductor.title}:\n`)
@@ -175,7 +175,7 @@ export class ConsoleReporter {
         }
 
         if (result?.error) {
-            t += result.getErrorAsString().trim()
+            t += String(result.error).trim()
             t += '\n'
             if (tree) {
                 t += tree.indent + (tree.isLast ? ' ' : '╎') + '\n'
@@ -303,7 +303,7 @@ export class ConsoleReporter {
                 }
                 resultPrint[r.type] += pre + ` ⤷⟨${this.printTestStatusIcon(i)}⟩ ${i.run.conductor.title}\n`
                 if (r.type === TestResultType.fail) {
-                    resultPrint[r.type] += r.getErrorAsString().trim() + '\n'
+                    resultPrint[r.type] += String(r.error).trim() + '\n'
                 }
             }
             t += resultPrint.success

@@ -137,6 +137,7 @@ export class ModuleLoader implements FileLoader {
         return {
             content: code,
             mimeType: 'text/javascript',
+            origin: String(sourceUrl),
         }
     }
 

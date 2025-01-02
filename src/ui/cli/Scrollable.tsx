@@ -1,56 +1,51 @@
 import React, { useEffect, useRef, useState } from 'react'
-import { Box, measureElement, Text, TextProps, useInput } from 'ink'
-import widestLine from 'widest-line'
+import { Box, measureElement, Text, useInput } from 'ink'
 
 export function Scrollable({
-    content,
-    ...textProps
-}: {
-    /** Only elements with size.y 1 are supported */
-    content: Array<React.ReactNode>|string
-} & TextProps) {
-    const lines = typeof content === 'string' ? content.split('\n') : content
-    const contentHeight = lines.length
-    const contentWidth = typeof content === 'string' ? widestLine(content) : 0
+    children,
+}: React.PropsWithChildren) {
+    const [boxSize, setBoxSize] = useState({ x: 0, y: 0 })
+    const [contentSize, setContentSize] = useState({x: 0, y: 0})
 
-    const [size, setSize] = useState({ x: 0, y: 0 })
+    const scrollingX = boxSize.x > 0 && contentSize.x > boxSize.x - 1
+    const scrollingY = boxSize.y > 0 && contentSize.y > boxSize.y - Number(scrollingX)
 
-    const scrollingX = size.x > 0 && contentWidth > size.x - 1
-    const scrollingY = size.y > 0 && contentHeight > size.y - Number(scrollingX)
+    const width = boxSize.x - Number(scrollingY)
+    const height = boxSize.y - Number(scrollingX)
 
-    const width = size.x - Number(scrollingY)
-    const height = size.y - Number(scrollingX)
-
-    const maxOffsetY = Math.max(0, contentHeight - height)
-    const maxOffsetX = Math.max(0, contentWidth - width)
+    const maxOffsetY = Math.max(0, contentSize.y - height)
+    const maxOffsetX = Math.max(0, contentSize.x - width)
 
     const [offsetX, setOffsetX] = useState(0)
     const [offsetY, setOffsetY] = useState(0)
     useInput((input, key) => {
         if (key.upArrow) {
-            setOffsetY(o => Math.max(0, o - (key.shift ? size.y : 1)))
+            setOffsetY(o => Math.max(0, o - (key.shift ? boxSize.y : 1)))
         } else if (key.downArrow) {
-            setOffsetY(o => Math.min(o + (key.shift ? size.y : 1), maxOffsetY))
+            setOffsetY(o => Math.min(o + (key.shift ? boxSize.y : 1), maxOffsetY))
         } else if (key.leftArrow) {
-            setOffsetX(o => Math.max(0, o - (key.shift ? size.x : 1)))
+            setOffsetX(o => Math.max(0, o - (key.shift ? boxSize.x : 1)))
         } else if (key.rightArrow) {
-            setOffsetX(o => Math.min(o + (key.shift ? size.x : 1), maxOffsetX))
+            setOffsetX(o => Math.min(o + (key.shift ? boxSize.x : 1), maxOffsetX))
         }
     })
 
     const boxEl = useRef(null)
+    const contentEl = useRef(null)
     // eslint-disable-next-line react-hooks/exhaustive-deps
     useEffect(() => {
-        if (boxEl.current) {
-            const {width, height} = measureElement(boxEl.current)
-            if (width !== size.x || height !== size.y) {
-                setSize({x: width, y: height})
-                setOffsetY(o => height ? Math.min(o, Math.max(0, contentHeight - height)) : 0)
+        if (boxEl.current && contentEl.current) {
+            const b = measureElement(boxEl.current)
+            const c = measureElement(contentEl.current)
+            if (b.width !== boxSize.x || b.height !== boxSize.y || c.width > contentSize.x || c.height > contentSize.y) {
+                setBoxSize({x: b.width, y: b.height})
+                setContentSize({x: c.width, y: c.height})
+                setOffsetY(o => height ? Math.min(o, Math.max(0, c.height - b.height)) : 0)
             }
         }
     })
 
-    const visibleRatioY = contentHeight ? Math.min(1, height / contentHeight) : 1
+    const visibleRatioY = contentSize.y ? Math.min(1, height / contentSize.y) : 1
     const scrollbarHeight = Math.max(1, Math.floor(visibleRatioY * height))
     const scrollbarTop = Math.round(offsetY / maxOffsetY * (height - scrollbarHeight))
     const scrollbarY = Array(scrollbarHeight).fill('⣿')
@@ -61,11 +56,11 @@ export function Scrollable({
         scrollbarY[0] = '⇕'
     }
 
-    const visibleRatioX = contentWidth ? Math.min(1, width / contentWidth) : 1
+    const visibleRatioX = contentSize.x ? Math.min(1, width / contentSize.x) : 1
     const scrollbarWidth = Math.max(1, Math.floor(visibleRatioX * width))
     const scrollbarLeft = Math.round(offsetX / maxOffsetX * (width - scrollbarWidth))
     const scrollbarX = Array(scrollbarWidth).fill('⠶')
-    if (scrollbarHeight > 1) {
+    if (scrollbarWidth > 1) {
         scrollbarX[0] = '⇐'
         scrollbarX[scrollbarX.length - 1] = '⇒'
     } else {
@@ -117,18 +112,28 @@ export function Scrollable({
                 flexShrink={1}
                 flexGrow={1}
                 flexDirection="column"
+                alignItems="flex-start"
                 justifyContent="flex-start"
+                overflow="hidden"
             >
-                {(scrollingY
-                    ? lines.slice(offsetY, offsetY + height)
-                    : lines
-                ).map((l, i) => (typeof l === 'string'
-                    ? <Text key={i} wrap="truncate-end" {...textProps}>
-                        {l.substring(offsetX, offsetX + width) || ' '}
-                    </Text>
-                    : l
-                ))}
+                <Box
+                    width={OVERFLOWSIZE}
+                    height={OVERFLOWSIZE}
+                    marginLeft={-offsetX}
+                    marginTop={-offsetY}
+                    alignItems="flex-start"
+                    justifyContent="flex-start"
+                >
+                    <Box
+                        ref={contentEl}
+                        flexDirection="column"
+                    >
+                        {children}
+                    </Box>
+                </Box>
             </Box>
         </Box>
     </Box>
 }
+
+const OVERFLOWSIZE = 1_000_000

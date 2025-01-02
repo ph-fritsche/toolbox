@@ -7,9 +7,9 @@ import { TestFunction, TestFunctionStack } from '../../conductor/TestRun/TestFun
 import { TreeExcerpt } from './Tree'
 import { Element } from './Blocks'
 import { FunctionStatusIcon } from './StatusIcons'
-import { Scrollable } from './Scrollable'
 import { findNodeFrom } from './helper'
 import { NodeConductor } from './Node'
+import { ScrollableError } from './Error'
 
 export function Results({
     run,
@@ -103,7 +103,7 @@ export function Results({
         <Element>
             <NodeConductor node={view.instance}/>
         </Element>
-        <Box height={1}/>
+        <Box height={1} flexShrink={0}/>
         <Result node={view.stack?.instances.get(view.instance)}/>
     </>
 }
@@ -113,15 +113,12 @@ function Result({
 }: {
     node?: TestFunction
 }) {
+    const result = node?.result.get()
+
     useSubscribers([
         r => node?.addListener('result', r),
-    ], [node])
+    ], [node, result])
 
-    if (!node) {
-        return null
-    }
-
-    const result = node?.result.get()
     if (!result) {
         return <Text color="grey">No result yet…</Text>
     } else if (result.type === TestResultType.skipped) {
@@ -133,14 +130,11 @@ function Result({
                 <Text>Duration: {result.duration}ms</Text>
             )}
         </>
+    } else if (!result.error) {
+        return null
     }
 
-    const error = result.getErrorAsString()
-
-    return <Scrollable key={error}
-        content={error.trimEnd()}
-        color="redBright"
-    />
+    return <ScrollableError error={result.error}/>
 }
 
 function nextRunInstance(

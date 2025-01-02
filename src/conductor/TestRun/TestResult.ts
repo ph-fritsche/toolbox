@@ -1,22 +1,25 @@
 import { TestResultType } from './enum'
+import { XError } from '../../error/XError'
 
 export class TestResult {
     constructor(
         readonly type: TestResultType,
-        readonly error?: Error|string,
+        error?: Error|string,
         readonly duration?: number,
-    ) {}
+    ) {
+        this.error = TestResultError.from(error)
+    }
+    readonly error
+}
 
-    getErrorAsString() {
-        if (!this.error) {
-            return ''
-        } else if (typeof this.error === 'string') {
-            return this.error
-        } else if (this.error.stack) {
-            return this.error.stack
-        } else {
-            return this.error.name + ': ' + this.error.message
+export class TestResultError extends XError {
+    static from(e?: Error|string) {
+        if (e === undefined) {
+            return undefined
+        } else if (typeof e === 'string') {
+            return new TestResultError('', e)
         }
+        return new TestResultError(e.name, e.message, e.stack, e.cause)
     }
 }
 

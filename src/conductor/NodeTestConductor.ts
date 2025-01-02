@@ -5,7 +5,6 @@ import url from 'node:url'
 import { TestConductor } from './TestConductor'
 import { HttpReporterServer } from './HttpReporterServer'
 import { TestReporter } from './TestReporter'
-import { ErrorStackResolver } from './ErrorStackResolver'
 import { AbortablePromise } from '../util/AbortablePromise'
 
 const loaderPathEnv = 'ToolboxNodeLoadersPath'
@@ -24,14 +23,11 @@ export class NodeTestConductor extends TestConductor {
         title?: string,
         setupFiles: URL[] = [],
         coverageVar = '__coverage__',
-        errorStackResolver = new ErrorStackResolver([]),
     ) {
         super(title, setupFiles, coverageVar)
-
-        this.reporterServer = new HttpReporterServer(errorStackResolver)
     }
 
-    readonly reporterServer: HttpReporterServer
+    readonly reporterServer = new HttpReporterServer()
 
     async close(): Promise<void> {
         await this.reporterServer.close()

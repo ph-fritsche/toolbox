@@ -9,6 +9,7 @@ import { Line, OverflowX } from './Blocks'
 import { TestFunctionStack } from '../../conductor/TestRun/TestFunction'
 import { Scrollable } from './Scrollable'
 import { NodeConductor } from './Node'
+import { renderError } from './Error'
 
 export function RunTree({
     run,
@@ -22,7 +23,7 @@ export function RunTree({
     const content = useRunStackTree(run, {printErrors})
 
     return scrollable && content
-        ? <Scrollable content={content}/>
+        ? <Scrollable>{content}</Scrollable>
         : <OverflowX>{content}</OverflowX>
 }
 
@@ -66,7 +67,7 @@ export function useRunStackTree(
     function* renderSuite(
         suite: TestSuiteStack,
         printErrors: boolean,
-    ): Generator<React.ReactElement> {
+    ): Generator<React.ReactNode> {
         yield <Box key={suite.url}>
             <Text color="grey">[</Text>
             {Array.from(suite.instances).map(([, instance], i) => (
@@ -88,7 +89,7 @@ export function useRunStackTree(
 
     function* renderErrors(
         node: TestGroupStack|TestSuiteStack,
-    ): Generator<React.ReactElement, boolean> {
+    ): Generator<React.ReactNode, boolean> {
         let yielded = false
         for (const nodeInstance of node.instances.values()) {
             if (!nodeInstance.errors.count) {
@@ -103,28 +104,24 @@ export function useRunStackTree(
             for (const iterator of nodeInstance.errors.grouped()) {
                 const errors = Array.from(iterator)
                 const error = errors[0]
-                yield* [
-                    error.hook && (
-                        <Line key={getKey()}>
-                            <Prefix dimColor>╎ </Prefix>
-                            <Text>{describeHook(error.hook)}</Text>
-                        </Line>
-                    ),
-                    ...error.toString().trim().split('\n').map((l, i, a) => (
-                        // eslint-disable-next-line react/jsx-key
-                        <Line key={getKey()}>
-                            <Prefix dimColor>{i === a.length - 1 && errors.length <= 1 ? '╰' : '╎'} </Prefix>
-                            <Text color="grey" dimColor></Text>
-                            <Text color="redBright" wrap="truncate-end">{l}</Text>
-                        </Line>
-                    )),
-                    errors.length > 1 && (
-                        <Line key={getKey()}>
-                            <Prefix dimColor>╰ </Prefix>
-                            <Text color="grey">+{errors.length - 1}</Text>
-                        </Line>
-                    ),
-                ].filter(Boolean) as React.ReactElement[]
+                if (error.hook) {
+                    yield <Line key={getKey()}>
+                        <Prefix dimColor>╎ </Prefix>
+                        <Text>{describeHook(error.hook)}</Text>
+                    </Line>
+                }
+                yield* renderError(error, (l, isLast) => (
+                    <Line key={getKey()}>
+                        <Prefix dimColor>{isLast ? '╰' : '╎'} </Prefix>
+                        <Text color="redBright" wrap="truncate-end">{l}</Text>
+                    </Line>
+                ))
+                if (errors.length > 1) {
+                    yield <Line key={getKey()}>
+                        <Prefix dimColor>╰ </Prefix>
+                        <Text color="grey">+{errors.length - 1}</Text>
+                    </Line>
+                }
             }
         }
         return yielded
@@ -144,7 +141,7 @@ export function useRunStackTree(
         printErrors: boolean,
         prefix = '',
         keyPrefix = '',
-    ): Generator<React.ReactElement> {
+    ): Generator<React.ReactNode> {
         for (const [node, ident, i] of group.children) {
             const isLast = i === group.children.size -1
             const key = `${keyPrefix}:${ident}`
@@ -178,7 +175,7 @@ export function useRunStackTree(
 
     function* renderResults(
         node: TestFunctionStack,
-    ): Generator<React.ReactElement> {
+    ): Generator<React.ReactNode> {
         let yielded = false
 
         switch(node.resultType) {
@@ -190,16 +187,15 @@ export function useRunStackTree(
 
         for (const instance of node.instances.values()) {
             yielded = true
-            const error = instance.result.get()?.getErrorAsString()
+            const error = instance.result.get()?.error
             yield <Line key={getKey()}>
                 <FunctionStatusIcon node={instance}/>
                 <NodeConductor node={instance}/>
             </Line>
             if (error) {
-                yield* error.trim().split('\n').map((l, i, a) => (
-                    // eslint-disable-next-line react/jsx-key
+                yield* renderError(error, (l, isLast) => (
                     <Line key={getKey()}>
-                        <Prefix dimColor>{i === a.length - 1 ? '╰' :'╎'} </Prefix>
+                        <Prefix dimColor>{isLast ? '╰' :'╎'} </Prefix>
                         <Text color="redBright" wrap="truncate-end">{l}</Text>
                     </Line>
                 ))

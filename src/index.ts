@@ -14,9 +14,12 @@ import { CjsTransformer } from './loader/CjsTransformer'
 import { FsLoader } from './loader/FsLoader'
 import { NodeTestConductor } from './conductor/NodeTestConductor'
 import { ChromeTestConductor } from './conductor/ChromeTestConductor'
-import { fileURLToPath } from 'url'
+import { fileURLToPath, pathToFileURL } from 'url'
 import { Tester } from './ui/Tester'
 import { TesterCli } from './ui/cli/TesterCli'
+import { ErrorStackResolver, SourceLocation, SourceLocationResolver } from './error/ErrorStackResolver'
+import { SourceMapResolver } from './error/SourceMapResolver'
+import { PathResolver } from './error/PathResolver'
 
 export type { TestContext } from './runner/TestContext'
 
@@ -251,17 +254,27 @@ export async function setupToolboxRunner() {
     if (self.protocol !== 'file:') {
         throw new Error(`Unsupported origin ${String(self)}`)
     }
+    const originPath = path.dirname(fileURLToPath(self))
+    const originUrl = pathToFileURL(originPath)
     const provider = new FileProvider([new FsLoader(
-        path.dirname(fileURLToPath(self)),
+        originPath,
         new Map([
             ['.js', 'text/javascript'],
         ]),
     )])
     const server = new HttpFileServer(provider)
+    const serverUrl = String(await server.url)
 
     return {
-        url: String(await server.url) + 'runner/index' + path.extname(self.pathname),
+        url: serverUrl + 'runner/index' + path.extname(self.pathname),
         close: () => server.close(),
+        resolve: (loc: SourceLocation) => {
+            if (loc.file?.startsWith(serverUrl)) {
+                return {...loc,
+                    file: String(originUrl) + loc.file.substring(serverUrl.length),
+                }
+            }
+        },
     }
 }
 
@@ -278,6 +291,7 @@ export async function setupToolboxTester(
         watcherFactory = () => new FsWatcher(),
         mapPathsToTestFiles = defaults.mapPathsToTestFiles,
         setExitCode = !!process.env.CI,
+        projectDir = process.cwd(),
     }: {
         /**
          * Factory for {@link TestRunManager} which creates and executes the test runs.
@@ -301,7 +315,7 @@ export async function setupToolboxTester(
         runnerFactory?: () => Promise<{
             url: string
             close: () => void|Promise<void>
-        }>,
+        } & SourceLocationResolver>,
         /**
          * Factory for {@link FsWatcher} which discovers and watches files in {@linkcode watchedFiles}.
          *
@@ -334,6 +348,10 @@ export async function setupToolboxTester(
          * - `exitCode` will be 3 if tests resulted in errors or timeouts.
          */
         setExitCode?: boolean
+        /**
+         * Path that will be stripped from file names in error stacks.
+         */
+        projectDir?: string
     } = {},
 ) {
     const manager = managerFactory()
@@ -352,6 +370,12 @@ export async function setupToolboxTester(
         conductors.push(c(runner.url))
     }
 
+    const errorStackResolver = new ErrorStackResolver([
+        new SourceMapResolver(String(await fileServer.url), fileServer.provider),
+        runner,
+        new PathResolver(String(pathToFileURL(projectDir)), ''),
+    ])
+
     const tester = new Tester(
         manager,
         conductors,
@@ -360,6 +384,7 @@ export async function setupToolboxTester(
         mapPathsToTestFiles,
         testRunIterator,
         setExitCode,
+        errorStackResolver,
     )
 
     const cli = new TesterCli(tester)
@@ -405,5 +430,6 @@ export async function setupToolboxTester(
         fileServer,
         watcher,
         connectCoverageReporter,
+        errorStackResolver,
     }
 }

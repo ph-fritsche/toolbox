@@ -1,72 +1,115 @@
+import { fileURLToPath } from 'node:url'
 import { RawSourceMap, SourceMapConsumer } from 'source-map'
 
 export type FileServer = {
     url: string
     getFile: (path: string) => Promise<string>
-    origin: string
+    origin?: string
 }
 
 export class ErrorStackResolver {
     constructor(
         readonly fileServers: Array<FileServer>,
-    ) {
-    }
+    ) {}
 
     async rewriteStack(
         stack: string,
     ) {
-        const re = /(?<pre>\s+at [^\n)]+\()(?<url>\w+:\/\/[^/?]*[^)]*):(?<line>\d+):(?<column>\d+)(?<post>\)$)/gm
-        let r: RegExpExecArray|null
-        // eslint-disable-next-line no-cond-assign
-        while ((r = re.exec(stack)) && r?.groups) {
-            const url = r.groups.url
-            const line = Number(r.groups.line)
-            const column = Number(r.groups.column)
-            for (const server of this.fileServers) {
-                if (url.startsWith(server.url) && (server.url.endsWith('/') || url[server.url.length] === '/')) {
-                    const subpath = trimStart(url.substring(server.url.length), '/')
-                    let subPathAndPos = `${subpath}:${line}:${column}`
+        for (let end = stack.length, start = end;
+            start = stack.lastIndexOf('\n', start - 1), start >= 0;
+            end = start
+        ) {
+            const l = stack.substring(start, end)
+            if (l === '\n') {
+                continue
+            }
+            const at = l.match(/^\s+at /)
+            if (!at) {
+                break
+            }
+            const m = l.match(/ \((?<file>[^)]+):(?<line>\d+):(?<column>\d+)\)$/)
+            if (!m?.groups || m.index === undefined) {
+                continue
+            }
 
-                    // TODO: handle errors when resolving code positions
+            const name = l.substring(at[0].length, m.index)
+            const {file, line, column} = m.groups
 
-                    const content = await server.getFile(subpath)
-                    const mapMatch = String(content).match(/\n\/\/# sourceMappingURL=data:application\/json;charset=utf-8;base64,(?<encodedMap>[0-9a-zA-Z+/]+)\s*$/)
-                    if (mapMatch?.groups) {
-                        const map = JSON.parse(Buffer.from(mapMatch.groups.encodedMap, 'base64').toString('utf8')) as RawSourceMap
-                        const original = await SourceMapConsumer.with(map, null, consumer => {
-                            return consumer.originalPositionFor({ line, column })
-                        })
-                        if (original.source) {
-                            subPathAndPos = `${subpath.substring(0, subpath.length - map.file.length)}${original.source}:${String(original.line)}:${String(original.column)}`
-                        }
-                    }
-                    const newStackEntry = r.groups.pre
-                        + server.origin
-                        + (server.origin.endsWith('/') ? '' : '/')
-                        + subPathAndPos
-                        + r.groups.post
+            const server = this.getServer(file)
+            if (!server) {
+                continue
+            }
 
-                    stack = stack.substring(0, r.index)
-                        + newStackEntry
-                        + stack.substring(r.index + r[0].length)
+            const map = await server.getFile(server.path).then(
+                source => this.getSourceMap(source, file),
+                () => undefined,
+            )
 
-                    re.lastIndex += newStackEntry.length - r[0].length
+            let resolved = map
+                ? await SourceMapConsumer.with(map.raw, map.url, consumer => {
+                    return consumer.originalPositionFor({line: Number(line), column: Number(column)})
+                })
+                : undefined
 
-                    break
+            if (!resolved?.source) {
+                resolved = {
+                    source: server.origin
+                        ? server.origin + (server.origin.endsWith('/') ? '' : '/') + server.path
+                        : null,
+                    name: null,
+                    line: null,
+                    column: null,
                 }
             }
+
+            if (resolved.source?.startsWith('file://')) {
+                resolved.source = fileURLToPath(resolved.source)
+            }
+
+            stack = stack.substring(0, start)
+                + at[0]
+                + (resolved.name ?? name)
+                + ' ('
+                + (resolved.source ?? file)
+                + (resolved.line !== null && resolved.column !== null
+                    ? `:${resolved.line}:${resolved.column}`
+                    : `:${line}:${column}`
+                )
+                + ')'
+                + stack.substring(end)
         }
         return stack
     }
-}
 
-function trimStart(
-    str: string,
-    chars: string,
-) {
-    for (let i = 0; ; i++) {
-        if (i >= str.length || !chars.includes(str[i])) {
-            return str.substring(i)
+    protected getServer(
+        url: string,
+    ) {
+        for (const server of this.fileServers) {
+            const pre = server.url.endsWith('/') ? server.url : server.url + '/'
+            if (url.startsWith(pre)) {
+                return {
+                    origin: server.origin,
+                    getFile: (p: string) => server.getFile(p),
+                    path: url.substring(pre.length),
+                }
+            }
+        }
+    }
+
+    protected getSourceMap(
+        source: string,
+        sourceUrl: string,
+    ) {
+        const sourceMappingURL = source.match(/\n\/\/# sourceMappingURL=([^\n]+)\s*$/m)?.[1]
+
+        if (sourceMappingURL?.startsWith('data:application/json')) {
+            const encodedMap = sourceMappingURL.match(/^data:application\/json(?:;charset=[-\w]+)?;base64,(?<encoded>[0-9a-zA-Z+/]+)/)?.groups?.encoded
+            if (encodedMap) {
+                return {
+                    raw: JSON.parse(Buffer.from(encodedMap, 'base64').toString()) as RawSourceMap,
+                    url: sourceUrl,
+                }
+            }
         }
     }
 }

@@ -1,5 +1,4 @@
 import { createServer, IncomingMessage, ServerResponse } from 'http'
-import { ErrorStackResolver } from './ErrorStackResolver'
 import { TestCompleteData, TestErrorData, TestReporter, TestResultData, TestScheduleData } from './TestReporter'
 
 export type HttpReporterReport = {
@@ -13,7 +12,6 @@ export type HttpReporterReport = {
 
 export class HttpReporterServer {
     constructor(
-        public readonly errorStackResolver: ErrorStackResolver,
         protected readonly host = '127.0.0.1',
     ) {
         this.url = new Promise((res, rej) => this.http.listen(0, '127.0.0.1', () => {

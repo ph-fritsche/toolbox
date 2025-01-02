@@ -5,6 +5,8 @@ import { FsWatcher } from '../files'
 import { Trigger } from '../util/Trigger'
 import { EventEmitter } from '../event'
 import { getEventDispatch } from '../event/EventEmitter'
+import { ErrorStackResolver } from '../error/ErrorStackResolver'
+import { StackEntry } from '../error/XError'
 
 type TesterEventMap = {
     state:
@@ -27,6 +29,7 @@ export class Tester extends EventEmitter<TesterEventMap> {
         protected readonly mapPathsToTestFiles: (fileserverUrl: URL, subPaths: Iterable<string>) => Iterable<TestFile>,
         public testRunIterator: (run: TestRunStack) => Generator<TestSuite>,
         protected readonly setExitCode: boolean,
+        protected readonly errorStackResolver: ErrorStackResolver,
     ) {
         super()
 
@@ -44,9 +47,9 @@ export class Tester extends EventEmitter<TesterEventMap> {
 
     protected dispatch = getEventDispatch(this)
 
-    protected _active = false
+    #active = false
     get active() {
-        return this._active
+        return this.#active
     }
 
     #runId = -1
@@ -84,6 +87,8 @@ export class Tester extends EventEmitter<TesterEventMap> {
             }
         }
 
+        this.errorStackResolver.clear()
+
         const run = await this.manager.run(
             conductors,
             this.getTestFiles(),
@@ -118,7 +123,11 @@ export class Tester extends EventEmitter<TesterEventMap> {
     }
 
     async start() {
-        this._active = true
+        if (this.#active && !this.pendingJobs.pending) {
+            return
+        }
+
+        this.#active = true
         this.dispatch('state', {key: 'start'})
 
         await this.watcher.ready
@@ -127,16 +136,30 @@ export class Tester extends EventEmitter<TesterEventMap> {
     }
 
     async stop() {
-        this._active = false
+        this.#active = false
         this.dispatch('state', { key: 'stop' })
 
         this.manager.abort('stop')
+
+        await this.pendingJobs.done()
     }
 
+    readonly pendingJobs = new PendingJobs()
+
     async activate() {
-        if (this._active) {
+        if (this.#active) {
             await this.trigger.activate()
         }
+    }
+
+    resolveErrorStackEntry(
+        entry: StackEntry,
+    ) {
+        entry.resolved.resolve(() => {
+            const p = this.errorStackResolver.resolve(entry)
+            this.pendingJobs.add(p)
+            return p
+        })
     }
 
     protected updateExitCode(run?: TestRunStack) {
@@ -178,5 +201,24 @@ class Property<T> {
         const old = this.#value
         this.#value = value
         this.#onChange(value, old)
+    }
+}
+
+class PendingJobs {
+    #pending = new Set<Promise<unknown>>()
+
+    add(promise: Promise<unknown>) {
+        this.#pending.add(promise)
+        void promise.then(() => this.#pending.delete(promise))
+    }
+
+    get pending() {
+        return !!this.#pending.size
+    }
+
+    async done(): Promise<void> {
+        while(this.#pending.size) {
+            await Promise.allSettled(this.#pending)
+        }
     }
 }

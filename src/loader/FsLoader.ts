@@ -1,6 +1,7 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import { File, FileLoader } from '../files/FileProvider'
+import { pathToFileURL } from 'node:url'
 
 export class FsLoader implements FileLoader {
     constructor(
@@ -20,7 +21,7 @@ export class FsLoader implements FileLoader {
         return {
             content: await fs.readFile(filePath),
             mimeType: this.mimeTypeMap.get(path.extname(name)),
-            origin: filePath,
+            origin: String(pathToFileURL(filePath)),
         }
     }
 }

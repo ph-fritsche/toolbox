@@ -2,7 +2,6 @@ import puppeteer, { Page } from 'puppeteer-core'
 import { TestConductor } from './TestConductor'
 import { HttpReporterServer } from './HttpReporterServer'
 import { TestReporter } from './TestReporter'
-import { ErrorStackResolver } from './ErrorStackResolver'
 import { AbortablePromise } from '../util/AbortablePromise'
 
 export class ChromeTestConductor extends TestConductor {
@@ -11,7 +10,6 @@ export class ChromeTestConductor extends TestConductor {
         title?: string,
         setupFiles: URL[] = [],
         coverageVar = '__coverage__',
-        errorStackResolver = new ErrorStackResolver([]),
         readonly browser = puppeteer.launch({
             executablePath: '/usr/bin/chromium',
             headless: 'new',
@@ -24,11 +22,9 @@ export class ChromeTestConductor extends TestConductor {
         }),
     ) {
         super(title, setupFiles, coverageVar)
-
-        this.reporterServer = new HttpReporterServer(errorStackResolver)
     }
 
-    readonly reporterServer: HttpReporterServer
+    readonly reporterServer = new HttpReporterServer()
 
     async close(): Promise<void> {
         await Promise.all([

@@ -7,7 +7,7 @@ import { TestGroup, TestGroupStack } from '../../conductor/TestRun/TestGroup'
 import { findNodeFrom, hasError } from './helper'
 import { TreeExcerpt } from './Tree'
 import { Element } from './Blocks'
-import { Scrollable } from './Scrollable'
+import { ScrollableError } from './Error'
 
 export function Errors({
     run,
@@ -102,7 +102,7 @@ export function Errors({
                     </Box>
                 )}
                 <Box height={1}/>
-                <Scrollable content={error[0].toString()} color="redBright"/>
+                <ScrollableError error={error[0]}/>
                 {error.length > 1 && (
                     <Element>
                         <Text color="grey">…and {error.length - 1} more on this node/hook</Text>

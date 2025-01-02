@@ -1,13 +1,14 @@
-import { useEffect, useState } from 'react'
+import { useLayoutEffect, useRef, useState } from 'react'
 
 export function useSubscribers(
     subscribers: Array<(rerender: () => void) => (() => void) | undefined>,
     deps: unknown[],
 ) {
     const [d, setState] = useState({})
-    useEffect(() => {
+    const rerender = useRef(debounce(() => setState({}), 0)).current
+
+    useLayoutEffect(() => {
         const s: Array<() => void> = []
-        const rerender = debounce(() => setState({}), 5)
         for (const f of subscribers) {
             const u = f(rerender)
             if (u) {

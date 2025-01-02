@@ -42,25 +42,28 @@ export class TesterCli {
             </TesterCliContext.Provider>
         </TesterContext.Provider>
     )
-    protected getFinalTree = () => (
-        <TesterContext.Provider value={this.tester}>
+    protected getFinalTree = (wrapWithStatic = false) => {
+        const n = <TesterContext.Provider value={this.tester}>
             <TesterCliContext.Provider value={this}>
-                <CurrentRun fallback={null}>{run => (
-                    // Wrapping in <Static> prevents Ink from clearing the console
-                    // if the output height is bigger than the console height.
-                    <Static items={[null]}>{() => (<React.Fragment key="root">
-                        <Block height={1} />
-                        <RunTree run={run} printErrors/>
-                        <Block height={2} />
-                        <RunStats run={run}/>
-                        <Block height={1} />
-                        <RunInstanceStats run={run}/>
-                        <Block height={1} />
-                    </React.Fragment>)}</Static>
-                )}</CurrentRun>
+                <CurrentRun fallback={null}>{run => (<>
+                    <Block height={1} />
+                    <RunTree run={run} printErrors/>
+                    <Block height={2} />
+                    <RunStats run={run}/>
+                    <Block height={1} />
+                    <RunInstanceStats run={run}/>
+                    <Block height={1} />
+                </>)}</CurrentRun>
             </TesterCliContext.Provider>
         </TesterContext.Provider>
-    )
+
+        // Wrapping in <Static> prevents Ink from clearing the console
+        // if the output height is bigger than the console height.
+        // Rendering without <Static> first allows to add pendingJobs in useEffect hooks.
+        return wrapWithStatic
+            ? <Static items={[null]}>{() => <React.Fragment key="root">{n}</React.Fragment>}</Static>
+            : n
+    }
 
     async open() {
         if (this.#instance) {
@@ -101,6 +104,8 @@ export class TesterCli {
             this.#instance = render(this.getFinalTree(), {
                 exitOnCtrlC: false,
             })
+            await this.tester.pendingJobs.done()
+            this.#instance.rerender(this.getFinalTree(true))
         }
 
         this.#instance?.unmount()

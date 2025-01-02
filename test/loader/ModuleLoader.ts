@@ -35,10 +35,12 @@ test('transform TS files to JS', async () => {
     await expect(loader.load('some/file.ts')).resolves.toEqual({
         content: expect.stringContaining(`const x = 'y';`),
         mimeType: 'text/javascript',
+        origin: 'file:///project/some/file.ts',
     })
     await expect(loader.load('some/file.tsx')).resolves.toEqual({
         content: expect.stringContaining(`const x = /*#__PURE__*/ React.createElement(React.Fragment, null, "foo");`),
         mimeType: 'text/javascript',
+        origin: 'file:///project/some/file.tsx',
     })
 })
 
