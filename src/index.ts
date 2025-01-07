@@ -20,6 +20,7 @@ import { TesterCli } from './ui/cli/TesterCli'
 import { ErrorStackResolver, SourceLocation, SourceLocationResolver } from './error/ErrorStackResolver'
 import { SourceMapResolver } from './error/SourceMapResolver'
 import { PathResolver } from './error/PathResolver'
+import { GitHubResolver } from './error/GitHubResolver'
 
 export type { TestContext } from './runner/TestContext'
 
@@ -373,6 +374,7 @@ export async function setupToolboxTester(
     const errorStackResolver = new ErrorStackResolver([
         new SourceMapResolver(String(await fileServer.url), fileServer.provider),
         runner,
+        new GitHubResolver(),
         new PathResolver(String(pathToFileURL(projectDir)), ''),
     ])
 

@@ -16,7 +16,13 @@ export function StackEntryText({
     ], [entry])
     tester.resolveErrorStackEntry(entry)
 
-    return <Text color="redBright" dimColor>at {String(entry)}</Text>
+    // A clickable link would be preferable,
+    // but GitHub Actions logs don't support the escape sequence for hyperlinks.
+    // See https://github.com/orgs/community/discussions/119709
+
+    return <Text color="redBright" dimColor>
+        {`at ${entry.toString(true)}`}
+    </Text>
 }
 
 export function XErrorComponent({
@@ -36,7 +42,11 @@ export function XErrorComponent({
             </Line>
         ))}
         {error.stackEntries?.map((entry, i, a) => (
-            <Line key={`stack-${i}`}>
+            <Line key={`stack-${i}`}
+                // If overflowX is set, Links are truncated although the box measurements are correct.
+                overflow="visible"
+                overflowY="hidden"
+            >
                 {border && (<Text color="grey" dimColor>{
                     (i === a.length - 1) ? '╰ ' : '╎ '
                 }</Text>)}
