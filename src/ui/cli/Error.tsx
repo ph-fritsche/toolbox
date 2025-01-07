@@ -3,7 +3,7 @@ import { StackEntry, XError } from '../../error/XError'
 import { useTester } from '../TesterContext'
 import { useSubscribers } from './useSubscribers'
 import { Text } from 'ink'
-import { Scrollable } from './Scrollable'
+import { Block, Line } from './Blocks'
 
 export function StackEntryText({
     entry,
@@ -19,29 +19,29 @@ export function StackEntryText({
     return <Text color="redBright" dimColor>at {String(entry)}</Text>
 }
 
-export function* renderError(
-    error: XError,
-    renderLine: (l: React.ReactNode, isLast: boolean) => React.ReactNode,
-) {
-    const text = error.text.split('\n')
-    for(let i = 0; i < text.length; i++) {
-        yield renderLine((
-            <Text color="redBright">{text[i]}</Text>
-        ), !error.stackEntries && i === text.length -1)
-    }
-    if (error.stackEntries) {
-        for(let i = 0; i < error.stackEntries.length; i++) {
-            yield renderLine((
-                <StackEntryText key={`stackEntry-${i}`} entry={error.stackEntries[i]}/>
-            ), i === error.stackEntries.length -1)
-        }
-    }
-}
-
-export function ScrollableError({
+export function XErrorComponent({
     error,
+    border = false,
 }: {
     error: XError,
+    border?: boolean,
 }) {
-    return <Scrollable key={error.stack ?? error.text}>{Array.from(renderError(error, l => l))}</Scrollable>
+    return <Block>
+        {error.text.split('\n').map((t, i, a) => (
+            <Line key={`${i}-${t}`}>
+                {border && (<Text color="grey" dimColor>{
+                    (!error.stackEntries && i === a.length - 1) ? '╰ ' : '╎ '
+                }</Text>)}
+                <Text color="redBright">{t}</Text>
+            </Line>
+        ))}
+        {error.stackEntries?.map((entry, i, a) => (
+            <Line key={`stack-${i}`}>
+                {border && (<Text color="grey" dimColor>{
+                    (i === a.length - 1) ? '╰ ' : '╎ '
+                }</Text>)}
+                <StackEntryText entry={entry}/>
+            </Line>
+        ))}
+    </Block>
 }

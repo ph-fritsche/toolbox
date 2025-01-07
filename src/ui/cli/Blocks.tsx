@@ -3,10 +3,12 @@ import { Box, BoxProps } from 'ink'
 
 export function Block(props: React.PropsWithChildren<BoxProps>) {
     return <Box
-        {...props}
+        flexShrink={0}
+        flexGrow={0}
         flexDirection="column"
         justifyContent="flex-start"
         flexWrap="nowrap"
+        {...props}
     />
 }
 
