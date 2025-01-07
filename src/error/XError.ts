@@ -94,6 +94,7 @@ function* genStackEntries(stack: string) {
 
 export type SourceLocation = {
     file?: string
+    url?: string
     position?: Position
     name?: string
 }
@@ -109,11 +110,17 @@ export class StackEntry {
     }
     readonly resolved
 
-    toString() {
+    toString(
+        useUrl = false,
+    ) {
         const e = this.resolved.get()
 
         const pos = e.position ? `:${e.position.line}:${e.position.column}` : ''
-        if (e.name && e.file) {
+        if (useUrl && e.url && e.name) {
+            return `${e.name} (${e.url})`
+        } else if (useUrl && e.url) {
+            return `${e.url}`
+        } else if (e.name && e.file) {
             return `${e.name} (${e.file}${pos})`
         } else if (e.file) {
             return `${e.file}${pos}`
