@@ -6,8 +6,9 @@ import { Key } from './Key'
 import { TestGroup, TestGroupStack } from '../../conductor/TestRun/TestGroup'
 import { findNodeFrom, hasError } from './helper'
 import { TreeExcerpt } from './Tree'
-import { Element } from './Blocks'
-import { ScrollableError } from './Error'
+import { Element, Line } from './Blocks'
+import { Scrollable } from './Scrollable'
+import { XErrorComponent } from './Error'
 
 export function Errors({
     run,
@@ -97,12 +98,14 @@ export function Errors({
         {error && error.length > 0
             ? <>
                 {error[0].hook && (
-                    <Box marginTop={1}>
+                    <Line marginTop={1}>
                         <Text>{describeHook(error[0].hook)}</Text>
-                    </Box>
+                    </Line>
                 )}
-                <Box height={1}/>
-                <ScrollableError error={error[0]}/>
+                <Line/>
+                <Scrollable key={error[0].stack}>
+                    <XErrorComponent error={error[0]}/>
+                </Scrollable>
                 {error.length > 1 && (
                     <Element>
                         <Text color="grey">…and {error.length - 1} more on this node/hook</Text>

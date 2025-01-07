@@ -9,7 +9,8 @@ import { Element } from './Blocks'
 import { FunctionStatusIcon } from './StatusIcons'
 import { findNodeFrom } from './helper'
 import { NodeConductor } from './Node'
-import { ScrollableError } from './Error'
+import { Scrollable } from './Scrollable'
+import { XErrorComponent } from './Error'
 
 export function Results({
     run,
@@ -134,7 +135,9 @@ function Result({
         return null
     }
 
-    return <ScrollableError error={result.error}/>
+    return <Scrollable key={result.error.stack}>
+        <XErrorComponent error={result.error}/>
+    </Scrollable>
 }
 
 function nextRunInstance(

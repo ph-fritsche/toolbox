@@ -1,74 +1,53 @@
 import React from 'react'
 import { Box, Text, TextProps } from 'ink'
-import { isTestFunctionStack, isTestGroupStack, TestHook, TestNodeStack, TestResultType, TestRunInstance, TestRunStack, TestSuiteStack } from '../../conductor/TestRun'
+import { isTestFunctionStack, isTestGroupStack, TestHook, TestNodeStack, TestResultType, TestRunInstance, TestRunStack, TestSuite, TestSuiteStack } from '../../conductor/TestRun'
 import { useSubscribers } from './useSubscribers'
-import { TestGroupStack } from '../../conductor/TestRun/TestGroup'
+import { TestGroup, TestGroupStack } from '../../conductor/TestRun/TestGroup'
 import { FunctionStatusIcon, InstanceStatusIcon } from './StatusIcons'
 import { hasError } from './helper'
-import { Line, OverflowX } from './Blocks'
+import { Block, Line, OverflowX } from './Blocks'
 import { TestFunctionStack } from '../../conductor/TestRun/TestFunction'
 import { Scrollable } from './Scrollable'
 import { NodeConductor } from './Node'
-import { renderError } from './Error'
+import { XErrorComponent } from './Error'
+import { TestElementStack } from '../../conductor/TestRun/TestElement'
 
 export function RunTree({
     run,
-    printErrors,
-    scrollable,
+    printErrors = false,
+    scrollable = false,
 }: {
     run: TestRunStack
     printErrors?: boolean
     scrollable?: boolean
 }) {
-    const content = useRunStackTree(run, {printErrors})
+    const content = Array.from(run.suites.values())
+        .toSorted((a, b) => a.title === b.title ? 0 : a.title < b.title ? -1 : 1)
+        .map(s => <SuiteTree
+            key={s.url}
+            suite={s}
+            printErrors={printErrors}
+        />)
 
     return scrollable && content
         ? <Scrollable>{content}</Scrollable>
         : <OverflowX>{content}</OverflowX>
 }
 
-export function useRunStackTree(
-    run: TestRunStack|undefined,
-    {
-        printErrors = false,
-    }: {
-        printErrors?: boolean
-    },
-) {
+function SuiteTree({
+    suite,
+    printErrors,
+}: {
+    suite: TestSuiteStack,
+    printErrors: boolean,
+}) {
     useSubscribers([
-        r => run?.addListener('schedule', r),
-        r => run?.addListener('result', r),
-        r => run?.addListener('error', r),
-    ], [run])
+        r => suite.addListener('schedule', r),
+        r => suite.addListener('error', r),
+    ], [suite])
 
-    if (!run) {
-        return null
-    }
-
-    const getKey = newKeyGen()
-
-    return Array.from(run.suites.values())
-        .toSorted((a, b) => a.title === b.title ? 0 : a.title < b.title ? -1 : 1)
-        .flatMap((s) => Array.from(renderSuite(s, printErrors)))
-
-    // Scrollable requires the elements to be of uniform height.
-    // This requires the tree render functions to return an element for each line in a flat array.
-    // It is doubtful that a meaningful key would allow for actual optimization here.
-    // Therefor this just shuts React up.
-    function newKeyGen() {
-        const gen = function* genLineKey() {
-            for(let i = 0;;) {
-                yield i++
-            }
-        }()
-        return () => gen.next().value
-    }
-
-    function* renderSuite(
-        suite: TestSuiteStack,
-        printErrors: boolean,
-    ): Generator<React.ReactNode> {
-        yield <Box key={suite.url}>
+    return <Block key={suite.url}>
+        <Line>
             <Text color="grey">[</Text>
             {Array.from(suite.instances).map(([, instance], i) => (
                 <InstanceStatusIcon
@@ -78,132 +57,167 @@ export function useRunStackTree(
             ))}
             <Text color="grey">] </Text>
             <Text>{suite.title}</Text>
-        </Box>
-        if (printErrors) {
-            if (yield* renderErrors(suite)) {
-                yield <Line key={getKey()}/>
-            }
-        }
-        yield* renderChildren(suite, printErrors, '', suite.url)
-    }
+        </Line>
+        {printErrors && <ErrorsTree node={suite}/>}
+        {Array.from(suite.children).map(([child, ident], i, a) => (
+            <ElementTree
+                key={ident}
+                node={child}
+                isLast={i === a.length - 1}
+                printErrors={printErrors}
+            />
+        ))}
+    </Block>
+}
 
-    function* renderErrors(
-        node: TestGroupStack|TestSuiteStack,
-    ): Generator<React.ReactNode, boolean> {
-        let yielded = false
-        for (const nodeInstance of node.instances.values()) {
+function ErrorsTree({
+    node,
+    prefix = '',
+    isLast = false,
+}: {
+    node: TestGroupStack | TestSuiteStack
+    prefix?: string
+    isLast?: boolean
+}) {
+    useSubscribers([
+        r => node.addListener('error', r),
+    ], [node])
+
+    let hasErrors = false
+    return <>
+        {Array.from<TestGroup|TestSuite>(node.instances.values()).map((nodeInstance, i) => {
             if (!nodeInstance.errors.count) {
-                continue
+                return null
             }
-            yielded = true
+            hasErrors = true
 
-            yield <Line key={getKey()}>
-                <Text color="redBright" bold>!</Text>
-                <NodeConductor node={nodeInstance}/>
+            return <Block key={`nodeInstance-${i}`}>
+                <Line>
+                    <Text color="redBright" bold>!</Text>
+                    <NodeConductor node={nodeInstance}/>
+                </Line>
+                {Array.from(nodeInstance.errors.grouped()).map((errorIterator, i) => {
+                    const errors = Array.from(errorIterator)
+                    const error = errors[0]
+
+                    return <React.Fragment key={i}>
+                        {error.hook && (
+                            <Line>
+                                <Prefix dimColor>╎ </Prefix>
+                                <Text>{describeHook(error.hook)}</Text>
+                            </Line>
+                        )}
+                        <XErrorComponent
+                            error={error}
+                            border
+                        />
+                        {(errors.length > 1) && (
+                            <Line>
+                                <Prefix dimColor>╰ </Prefix>
+                                <Text color="grey">+{errors.length - 1}</Text>
+                            </Line>
+                        )}
+                    </React.Fragment>
+                })}
+            </Block>
+        })}
+        {hasErrors && (
+            <Line>
+                <Prefix>{prefix + (isLast ? ' ' : '│') + (node.children.size ? '│' : '')}</Prefix>
             </Line>
-            for (const iterator of nodeInstance.errors.grouped()) {
-                const errors = Array.from(iterator)
-                const error = errors[0]
-                if (error.hook) {
-                    yield <Line key={getKey()}>
-                        <Prefix dimColor>╎ </Prefix>
-                        <Text>{describeHook(error.hook)}</Text>
-                    </Line>
-                }
-                yield* renderError(error, (l, isLast) => (
-                    <Line key={getKey()}>
-                        <Prefix dimColor>{isLast ? '╰' : '╎'} </Prefix>
-                        <Text color="redBright" wrap="truncate-end">{l}</Text>
-                    </Line>
-                ))
-                if (errors.length > 1) {
-                    yield <Line key={getKey()}>
-                        <Prefix dimColor>╰ </Prefix>
-                        <Text color="grey">+{errors.length - 1}</Text>
-                    </Line>
-                }
-            }
-        }
-        return yielded
-    }
+        )}
+    </>
+}
 
-    function describeHook(hook: TestHook) {
-        return [
-            hook.cleanup && 'cleanup of',
-            'hook',
-            `${hook.type}#${hook.index}`,
-            hook.name,
-        ].filter(Boolean).join(' ')
-    }
+function describeHook(hook: TestHook) {
+    return [
+        hook.cleanup && 'cleanup of',
+        'hook',
+        `${hook.type}#${hook.index}`,
+        hook.name,
+    ].filter(Boolean).join(' ')
+}
 
-    function* renderChildren(
-        group: TestGroupStack|TestSuiteStack,
-        printErrors: boolean,
-        prefix = '',
-        keyPrefix = '',
-    ): Generator<React.ReactNode> {
-        for (const [node, ident, i] of group.children) {
-            const isLast = i === group.children.size -1
-            const key = `${keyPrefix}:${ident}`
-
-            yield <TreeNode key={key}
+function ElementTree({
+    node,
+    prefix = '',
+    isLast = false,
+    printErrors = false,
+}: {
+    node: TestElementStack,
+    prefix?: string,
+    isLast?: boolean,
+    printErrors?: boolean,
+}) {
+    return <Block>
+        <TreeNode
+            prefix={prefix}
+            title={node.title}
+            hasChildNodes={Boolean(node.children?.size)}
+            result={isTestFunctionStack(node) && <FunctionStatusIcon node={node} />}
+            isLast={isLast}
+        />
+        {printErrors && isTestGroupStack(node) && (
+            <ErrorsTree
+                node={node}
                 prefix={prefix}
-                title={node.title}
-                hasChildNodes={Boolean(node.children?.size)}
-                result={isTestFunctionStack(node) && <FunctionStatusIcon node={node}/>}
                 isLast={isLast}
             />
-            if (printErrors && isTestGroupStack(node)) {
-                if (yield* renderErrors(node)) {
-                    yield <Prefix key={getKey()}>{prefix + (isLast ? ' ' : '│') + (node.children.size ? '│' : '')}</Prefix>
-                }
-            }
-            if (isTestGroupStack(node)) {
-                yield* renderChildren(
-                    node,
-                    printErrors,
-                    prefix + (isLast ? ' ' : '│'),
-                    key,
-                )
-            } else if (printErrors && isTestFunctionStack(node)) {
-                if (yield* renderResults(node)) {
-                    yield <Prefix key={getKey()}>{prefix + (isLast ? ' ' : '│')}</Prefix>
-                }
-            }
-        }
+        )}
+        {printErrors && isTestFunctionStack(node) && (
+            <ResultTree
+                node={node}
+                prefix={prefix}
+                isLast={isLast}
+            />
+        )}
+        {Array.from(node.children ?? []).map(([child, ident], i, a) => {
+            return <ElementTree
+                key={ident}
+                node={child as TestElementStack}
+                prefix={prefix + (isLast ? ' ' : '│')}
+                isLast={i === a.length - 1}
+                printErrors={printErrors}
+            />
+        })}
+    </Block>
+}
+
+function ResultTree({
+    node,
+    prefix,
+    isLast,
+}: {
+    node: TestFunctionStack,
+    prefix: string,
+    isLast: boolean,
+}) {
+    useSubscribers([
+        r => node.addListener('result', r),
+    ], [node])
+
+    switch (node.resultType) {
+    case undefined:
+    case TestResultType.success:
+    case TestResultType.skipped:
+        return false
     }
 
-    function* renderResults(
-        node: TestFunctionStack,
-    ): Generator<React.ReactNode> {
-        let yielded = false
-
-        switch(node.resultType) {
-        case undefined:
-        case TestResultType.success:
-        case TestResultType.skipped:
-            return yielded
-        }
-
-        for (const instance of node.instances.values()) {
-            yielded = true
+    return <Block>
+        {Array.from(node.instances.values()).map((instance, i) => {
             const error = instance.result.get()?.error
-            yield <Line key={getKey()}>
-                <FunctionStatusIcon node={instance}/>
-                <NodeConductor node={instance}/>
-            </Line>
-            if (error) {
-                yield* renderError(error, (l, isLast) => (
-                    <Line key={getKey()}>
-                        <Prefix dimColor>{isLast ? '╰' :'╎'} </Prefix>
-                        <Text color="redBright" wrap="truncate-end">{l}</Text>
-                    </Line>
-                ))
-            }
-        }
-
-        return yielded
-    }
+            return <React.Fragment key={i}>
+                <Line>
+                    <FunctionStatusIcon node={instance}/>
+                    <NodeConductor node={instance}/>
+                </Line >
+                {error && <XErrorComponent error={error} border/>}
+            </React.Fragment>
+        })}
+        <Line>
+            <Prefix>{prefix + (isLast ? ' ' : '│')}</Prefix>
+        </Line>
+    </Block>
 }
 
 export function Prefix({
