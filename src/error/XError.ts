@@ -35,6 +35,8 @@ export class XError implements Error {
 
     text: string
     stackEntries?: StackEntry[]
+    /** Index of the "entry point" */
+    stackEntriesMain?: number
 }
 
 function forEach<T, R>(
@@ -66,23 +68,26 @@ function* genStackEntries(stack: string) {
         }
         const raw = l.substring(pre.length)
 
-        const m0 = raw.match(/(?<name>.+) \((?<file>[^)]+):(?<line>\d+):(?<column>\d+)\)$/)
+        const m0 = raw.match(/(?<async>async )?(?<name>.+) \((?<file>[^)]+):(?<line>\d+):(?<column>\d+)\)$/)
         if (m0?.groups) {
             yield new StackEntry(
                 raw,
                 m0.groups.file,
                 {line: Number(m0.groups.line), column: Number(m0.groups.column)},
                 m0.groups.name,
+                !!m0.groups.async,
             )
             continue
         }
 
-        const m1 = raw.match(/(?<file>.*):(?<line>\d+):(?<column>\d+)$/)
+        const m1 = raw.match(/(?<async>async )?(?<file>.*):(?<line>\d+):(?<column>\d+)$/)
         if (m1?.groups) {
             yield new StackEntry(
                 raw,
                 m1.groups.file,
                 {line: Number(m1.groups.line), column: Number(m1.groups.column)},
+                undefined,
+                !!m1.groups.async,
             )
             continue
         }
@@ -105,6 +110,7 @@ export class StackEntry {
         readonly file?: string,
         readonly position?: Position,
         readonly name?: string,
+        readonly async: boolean = false,
     ) {
         this.resolved = new ResolvedValue<SourceLocation>({file, position, name})
     }
@@ -115,15 +121,16 @@ export class StackEntry {
     ) {
         const e = this.resolved.get()
 
+        const async = this.async ? 'async ' : ''
         const pos = e.position ? `:${e.position.line}:${e.position.column}` : ''
         if (useUrl && e.url && e.name) {
-            return `${e.name} (${e.url})`
+            return `${async}${e.name} (${e.url})`
         } else if (useUrl && e.url) {
-            return `${e.url}`
+            return `${async}${e.url}`
         } else if (e.name && e.file) {
-            return `${e.name} (${e.file}${pos})`
+            return `${async}${e.name} (${e.file}${pos})`
         } else if (e.file) {
-            return `${e.file}${pos}`
+            return `${async}${e.file}${pos}`
         }
         return this.raw
     }

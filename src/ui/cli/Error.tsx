@@ -41,7 +41,7 @@ export function XErrorComponent({
                 <Text color="redBright">{t}</Text>
             </Line>
         ))}
-        {error.stackEntries?.map((entry, i, a) => (
+        {error.stackEntries?.map((entry, i, a) => ((error.stackEntriesMain === undefined || i <= error.stackEntriesMain) && (
             <Line key={`stack-${i}`}
                 // If overflowX is set, Links are truncated although the box measurements are correct.
                 overflow="visible"
@@ -52,6 +52,6 @@ export function XErrorComponent({
                 }</Text>)}
                 <StackEntryText entry={entry}/>
             </Line>
-        ))}
+        )))}
     </Block>
 }
