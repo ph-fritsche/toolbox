@@ -131,10 +131,11 @@ function getNthError(
         return undefined
     }
     const gen = node.errors.grouped()
-    // eslint-disable-next-line no-cond-assign
-    for (let i = 0, e; i <= offset && (e = gen.next().value); i++) {
-        return Array.from(e)
+    let e
+    for (let i = 0; i <= offset; i++) {
+        e = gen.next().value
     }
+    return e && Array.from(e)
 }
 
 function nextRunInstance(
