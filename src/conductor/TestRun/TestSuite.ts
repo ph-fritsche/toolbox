@@ -11,6 +11,7 @@ import { createTestElements } from './createTestElements'
 import { CoverageMapData } from './TestCoverage'
 import { TestHook } from './TestHook'
 import { TestRunState } from './enum'
+import { XError } from '../../error/XError'
 
 export class TestSuiteStack extends TestNodeStack {
     static create(
@@ -175,10 +176,13 @@ export class TestSuite extends TestNodeInstance {
             throw new Error(`Can not add error for node #${String(data.nodeId)}`)
         }
 
-        node.errors.add(new TestError(
+        const error = new TestError(
             data.error,
             data.hook && new TestHook(data.hook.type, data.hook.index, data.hook.name, data.hook.cleanup),
-        ))
+        )
+        this.setStackEntriesMain(error)
+
+        node.errors.add(error)
     }
 
     private reportResult(data: TestResultData) {
@@ -189,7 +193,23 @@ export class TestSuite extends TestNodeInstance {
             throw new Error(`Can not add result for node #${data.nodeId}`)
         }
 
-        node.result.set(new TestResult(data.type, data.error, data.duration))
+        const result = new TestResult(data.type, data.error, data.duration)
+        if (result.error) {
+            this.setStackEntriesMain(result.error)
+        }
+
+        node.result.set(result)
+    }
+
+    protected setStackEntriesMain(error: XError) {
+        if (error.stackEntries) {
+            const i = error.stackEntries.findLastIndex(
+                e => e.file === this.url,
+            )
+            if (i >= 0) {
+                error.stackEntriesMain = i
+            }
+        }
     }
 
     protected _coverage?: CoverageMapData

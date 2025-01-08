@@ -41,12 +41,8 @@ export function XErrorComponent({
                 <Text color="redBright">{t}</Text>
             </Line>
         ))}
-        {error.stackEntries?.map((entry, i, a) => (
-            <Line key={`stack-${i}`}
-                // If overflowX is set, Links are truncated although the box measurements are correct.
-                overflow="visible"
-                overflowY="hidden"
-            >
+        {error.stackEntries?.slice(error.stackEntriesMain).map((entry, i, a) => (
+            <Line key={`stack-${i}`}>
                 {border && (<Text color="grey" dimColor>{
                     (i === a.length - 1) ? '╰ ' : '╎ '
                 }</Text>)}
