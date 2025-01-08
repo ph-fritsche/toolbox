@@ -31,7 +31,6 @@ export function Line(props: React.PropsWithChildren<BoxProps>) {
         flexGrow={0}
         height={1}
         flexWrap="nowrap"
-        overflow="hidden"
         {...props}
     />
 }
