@@ -9,6 +9,7 @@ import { TreeExcerpt } from './Tree'
 import { Element, Line } from './Blocks'
 import { Scrollable } from './Scrollable'
 import { XErrorComponent } from './Error'
+import { NodeConductor } from './Node'
 
 export function Errors({
     run,
@@ -94,6 +95,9 @@ export function Errors({
                     <Key>S</Key>
                 </Box>
             )}
+        </Element>
+        <Element>
+            <NodeConductor node={view.instance}/>
         </Element>
         {error && error.length > 0
             ? <>
