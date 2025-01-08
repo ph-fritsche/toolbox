@@ -148,12 +148,11 @@ export class TestRunner {
         const t0 = this.clock()
         let timer: number|undefined
         let reject: () => void = () => void 0
+        const timeoutSymbol = Symbol('timeout')
         try {
             await Promise.race([
                 new Promise((res, rej) => {
-                    timer = this.setTimeout(() => rej(
-                        new TimeoutError(`Test "${test.title}" timed out after ${timeout}ms.`),
-                    ), timeout)
+                    timer = this.setTimeout(() => rej(timeoutSymbol), timeout)
                 }),
                 test.callback.call(test),
             ])
@@ -161,6 +160,11 @@ export class TestRunner {
             return new TestResult(test, undefined, duration)
         } catch (e) {
             const duration = this.clock() - t0
+            if (e === timeoutSymbol) {
+                const error = new TimeoutError(`Test "${test.title}" timed out after ${timeout}ms.`)
+                error.stack = `${error.name}: ${error.message}\n${await test.getCallStack?.() ?? ''}`
+                return new TestResult(test, error, duration)
+            }
             return new TestResult(test, this.normalizeError(e), duration)
         } finally {
             reject()

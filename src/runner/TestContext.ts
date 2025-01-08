@@ -29,29 +29,51 @@ export function setTestContext(on: object, context: TestSuite|TestGroup) {
             )
         }
     }
+
     const test = (
         title: string,
         callback: TestCallback,
         timeout?: number,
     ) => {
-        new TestFunction(context, title, callback, timeout)
+        const error = new Error()
+        const getErrorCallStack = async () => {
+            return error.stack?.split('\n').slice(2).join('\n')
+        }
+
+        new TestFunction(
+            context,
+            title,
+            callback,
+            timeout,
+            getErrorCallStack,
+        )
     }
-    test.each = <Args>(cases: Iterable<Args>) => (
-        title: string,
-        cb: TestCallback<Args extends (unknown[] | readonly unknown[]) ? [...Args] : [Args]>,
-        timeout?: number,
-    ) => {
-        for (const args of cases) {
-            const argsArray = (Array.isArray(args) ? args : [args]) as (Args extends (unknown[] | readonly unknown[]) ? [...Args] : [Args])
-            test(
-                vsprintf(title, argsArray),
-                function(this: TestFunction) {
-                    return cb.apply(this, argsArray)
-                },
-                timeout,
-            )
+    test.each = <Args>(cases: Iterable<Args>) => {
+        const error = new Error()
+        const getErrorCallStack = async () => {
+            return error.stack?.split('\n').slice(2).join('\n')
+        }
+
+        return (
+            title: string,
+            cb: TestCallback<Args extends (unknown[] | readonly unknown[]) ? [...Args] : [Args]>,
+            timeout?: number,
+        ) => {
+            for (const args of cases) {
+                const argsArray = (Array.isArray(args) ? args : [args]) as (Args extends (unknown[] | readonly unknown[]) ? [...Args] : [Args])
+                new TestFunction(
+                    context,
+                    vsprintf(title, argsArray),
+                    function(this: TestFunction) {
+                        return cb.apply(this, argsArray)
+                    },
+                    timeout,
+                    getErrorCallStack,
+                )
+            }
         }
     }
+
     const beforeAll = (cb: BeforeCallback) => {
         context.beforeAll.push(cb)
     }

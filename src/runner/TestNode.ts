@@ -61,6 +61,7 @@ export class TestFunction extends TestChildNode {
         readonly title: string,
         readonly callback: TestCallback,
         readonly timeout?: number,
+        readonly getCallStack?: () => Promise<string|undefined>,
     ) {
         super(parent, title)
     }
