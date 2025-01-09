@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { Box, Text } from 'ink'
 import { useTester } from '../TesterContext'
 import { useSubscribers } from './useSubscribers'
@@ -23,21 +23,34 @@ export function FilterSuitesValue() {
 export function FilterSuitesInput() {
     const tester = useTester()
     useSubscribers([
-        r => tester.addListener('option', e => {
+        () => tester.addListener('option', e => {
             if (e.key === 'filterSuites') {
-                r()
+                setFilter(e.value)
             }
         }),
     ], [tester])
 
     const { navigate } = useRouter()
 
+    const [filter, setFilter] = useState(tester.filterSuites.get())
     const input = useStringInput(getRegexpSource(tester.filterSuites.get()), {
-        onChange: (v: string) => tester.filterSuites.set(v ? new RegExp(v, 'i') : undefined),
+        onInput: v => {
+            try {
+                setFilter(setRegexpSource(v))
+            } catch {
+                //
+            }
+        },
+        onChange: v => {
+            try {
+                tester.filterSuites.set(setRegexpSource(v))
+            } catch {
+                return false
+            }
+        },
         onEscape: () => navigate('/'),
     })
 
-    const filter = input.value ? new RegExp(input.value, 'i') : undefined
     return <Box
         justifyContent="space-between"
         flexWrap="wrap"
@@ -79,5 +92,9 @@ export function FilterSuitesInput() {
 }
 
 function getRegexpSource(r: RegExp | undefined) {
-    return r?.source.replaceAll(/\\(.)/g, '$1') ?? ''
+    return r?.source.replaceAll('\\/', '/') ?? ''
+}
+
+function setRegexpSource(s: string) {
+    return s ? new RegExp(s.replaceAll('/', '\\/')) : undefined
 }

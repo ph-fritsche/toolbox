@@ -33,7 +33,13 @@ export function FilterTestsInput() {
     const { navigate } = useRouter()
 
     const input = useStringInput(getRegexpSource(tester.filterTests.get()), {
-        onChange: (v: string) => tester.filterTests.set(v ? new RegExp(v, 'i') : undefined),
+        onChange: v => {
+            try {
+                tester.filterTests.set(setRegexpSource(v))
+            } catch {
+                return false
+            }
+        },
         onEscape: () => navigate('/'),
     })
 
@@ -70,4 +76,8 @@ export function FilterTestsInput() {
 
 function getRegexpSource(r: RegExp | undefined) {
     return r?.source.replaceAll(/\\(.)/g, '$1') ?? ''
+}
+
+function setRegexpSource(s: string) {
+    return s ? new RegExp(s.replaceAll('/', '\\/')) : undefined
 }

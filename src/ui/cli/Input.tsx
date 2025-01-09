@@ -11,7 +11,7 @@ export function useStringInput(
         onEscape,
         isFocused = true,
     }: {
-        onChange: (s: string) => void
+        onChange: (s: string) => void|boolean
         onInput?: (s: string) => void
         onReset?: (s: string) => void
         onEscape?: () => void
@@ -41,9 +41,12 @@ export function useStringInput(
             }
         } else if (key.return) {
             if (value !== initialValue) {
-                onChange(value)
+                if (onChange(value) !== false) {
+                    onEscape?.()
+                }
+            } else {
+                onEscape?.()
             }
-            onEscape?.()
         } else if (key.shift && (key.backspace || key.delete)) {
             set({ value: '', pos: 0 })
             onInput?.('')
