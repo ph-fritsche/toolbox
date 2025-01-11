@@ -256,7 +256,7 @@ export async function setupToolboxRunner() {
         throw new Error(`Unsupported origin ${String(self)}`)
     }
     const originPath = path.dirname(fileURLToPath(self))
-    const originUrl = pathToFileURL(originPath)
+    const originUrl = pathToFileURL(originPath + '/')
     const provider = new FileProvider([new FsLoader(
         originPath,
         new Map([
