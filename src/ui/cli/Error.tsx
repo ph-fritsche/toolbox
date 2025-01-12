@@ -41,13 +41,16 @@ export function XErrorComponent({
                 <Text color="redBright">{t}</Text>
             </Line>
         ))}
-        {error.stackEntries?.slice(error.stackEntriesMain).map((entry, i, a) => (
-            <Line key={`stack-${i}`}>
-                {border && (<Text color="grey" dimColor>{
-                    (i === a.length - 1) ? '╰ ' : '╎ '
-                }</Text>)}
-                <StackEntryText entry={entry}/>
-            </Line>
-        ))}
+        {error.stackEntries
+            ?.slice(0, error.stackEntriesMain !== undefined ? error.stackEntriesMain + 1 : undefined)
+            .map((entry, i, a) => (
+                <Line key={`stack-${i}`}>
+                    {border && (<Text color="grey" dimColor>{
+                        (i === a.length - 1) ? '╰ ' : '╎ '
+                    }</Text>)}
+                    <StackEntryText entry={entry}/>
+                </Line>
+            ))
+        }
     </Block>
 }
