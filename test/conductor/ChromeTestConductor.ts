@@ -47,7 +47,7 @@ test('conduct test', async () => {
     expect(getTestFunction(suite, 2)).toHaveProperty('title', 'failing test')
     expect(getTestFunction(suite, 2).result.get()).toHaveProperty('type', 'fail')
 
-    expect((await (await conductor.browser).pages()).length).toBe(0)
+    expect((await (await conductor.browser).pages()).length).toBe(1)
 }, generousTimeout)
 
 test('abort test', async () => {
@@ -73,3 +73,19 @@ test('abort test', async () => {
     expect(getTestFunction(suite, 1).result.get()).toHaveProperty('type', 'success')
     expect(getTestFunction(suite, 2).result.get()).toBe(undefined)
 }, generousTimeout)
+
+test('document is hidden', async () => {
+    const {conductor, fileServer} = await setupConductor()
+    fileServer.provider.files.set('checkVisibility.js', Promise.resolve({content: `
+        if (document.visibilityState !== 'hidden') {
+            throw new Error('document.visibilityState is: ' + document.visibilityState)
+        }
+    `}))
+    const suiteUrl = String(await fileServer.url) + 'checkVisibility.js'
+    const run = createTestRun([conductor], [{url: suiteUrl, title: 'visibilityState'}])
+    const suite = run.runs.get(conductor)!.suites.get(suiteUrl)!
+
+    await suite.exec().catch(() => void 0)
+
+    expect(suite.errors[Symbol.iterator]().next().value?.message).toBe(undefined)
+})

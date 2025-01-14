@@ -22,7 +22,10 @@ export class ChromeTestConductor extends TestConductor {
         }),
     ) {
         super(title, setupFiles, coverageVar)
+
+        this.defaultPage = browser.then(b => b.newPage())
     }
+    protected defaultPage
 
     readonly reporterServer = new HttpReporterServer()
 
@@ -91,6 +94,8 @@ await new TestRunner(
     r => window['${callbackPrefix}-reject'](r instanceof Error ? r.stack : String(r)),
 )
         `
+
+        await (await this.defaultPage).bringToFront()
 
         await page.setContent(`<html><head><script type="module">${childCode}</script>`)
 
