@@ -67,8 +67,6 @@ export class ChromeTestConductor extends TestConductor {
             void page.exposeFunction(`${callbackPrefix}-reject`, rej)
         })
 
-        page.on('console', m => console.log(m.type(), m.text()))
-
         const reporterId = this.reporterServer.registerReporter(reporter)
 
         const childCode = `
